@@ -1,15 +1,31 @@
+#![allow(dead_code, unused_imports)]
+use std::process::exit;
+use std::thread;
+
 use futures_util::{ future, pin_mut, StreamExt };
 use tokio::io::{ AsyncReadExt, AsyncWriteExt };
+use tokio::select;
+use tokio::signal::unix::{SignalKind, signal,
+Signal};
 use tokio_tungstenite::{ connect_async, tungstenite::protocol::Message };
 use dotenv::dotenv;
+use tokio::runtime::Runtime;
+use actix_web::rt::{System, self};
 #[tokio::main]
 async fn main() {
     dotenv().ok();
+    
     let auth_token = std::env::var("AUTH_TOKEN").expect("AUTH_TOKEN not set");
-    let parseToken = format!("PASS oauth:{}", auth_token);
+    let parse_token = format!("PASS oauth:{}", auth_token);
     let url = url::Url::parse("ws://irc-ws.chat.twitch.tv:80").unwrap();
     let (stdin_tx, stdin_rx) = futures_channel::mpsc::unbounded();
     tokio::spawn(read_stdin(stdin_tx.clone()));
+    
+    let clone = stdin_tx.clone();
+    let actix_thread = thread::spawn(|| {
+        actix_rt::System::new().block_on(start_server(clone));
+    });
+    let mut stream = signal(SignalKind::interrupt()).unwrap();
     let (ws_stream, _) = connect_async(url).await.expect("Failed to connect");
     println!("WebSocket handshake has been successfully completed");
     let (write, read) = ws_stream.split();
@@ -26,6 +42,11 @@ async fn main() {
                     }
                     println!("{:#?}", data);
                     let message = TwitchMessage::parse_message(data.clone());
+                    if message.command.message.starts_with("!ping") {
+                        stdin_tx
+                            .unbounded_send(Message::Text("PRIVMSG #chloe_dev_rust :PONG".into()))
+                            .unwrap();
+                    }
                     println!("{:#?}", message);
                 }
                 Ok(data) => { println!("Received: {:?}", data) }
@@ -33,21 +54,69 @@ async fn main() {
             }
 
             // tokio::io::stdout().write_all(&data).await.unwrap();
-        })
+        })          
     };
-
+   
     stdin_tx
         .unbounded_send(
             Message::Text("CAP REQ :twitch.tv/membership twitch.tv/tags twitch.tv/commands".into())
         )
         .unwrap();
-    stdin_tx.unbounded_send(Message::Text(parseToken)).unwrap();
+    stdin_tx.unbounded_send(Message::Text(parse_token)).unwrap();
     stdin_tx.unbounded_send(Message::Text(String::from("NICK chloe_dev_rust"))).unwrap();
-    stdin_tx.unbounded_send(Message::Text("JOIN #naowh".into())).unwrap();
-    pin_mut!(stdin_to_ws, ws_to_stdout);
-    future::select(stdin_to_ws, ws_to_stdout).await;
+    stdin_tx.unbounded_send(Message::Text("JOIN #chloe_dev_rust".into())).unwrap();
+    
+    
+    let ws_task = async {
+        pin_mut!(stdin_to_ws, ws_to_stdout);
+        future::select(stdin_to_ws, ws_to_stdout).await;
+    };
+
+    // Wait for the WebSocket tasks to finish or Ctrl+C, whichever comes first
+    let ctrl_c_task = stream.recv();
+
+    tokio::select! {
+        _ = ws_task => {
+            eprintln!("WebSocket tasks completed.");
+        }
+        _ = ctrl_c_task => {
+            eprintln!("Ctrl+C received.");
+        }
+    }
+
+    // Now, you can close the Actix server and any other tasks if necessary
+    actix_thread.join().unwrap();
+    
+    
+    // If you still want to force exit:
+    // exit(0);
+}
+struct AppState {
+    tx : futures_channel::mpsc::UnboundedSender<Message>,
 }
 
+use actix_web::{get, App, HttpResponse, HttpServer, Responder, web};
+async fn start_server( tx: futures_channel::mpsc::UnboundedSender<Message>) {
+    use actix_web::{get, App, HttpServer, Responder};
+
+    #[get("/")]
+    async fn index(data: web::Data<AppState>) -> impl Responder {
+        data.tx.unbounded_send(Message::Text("PRIVMSG #chloe_dev_rust :Hello from Actix!".into())).unwrap();
+        format!("Hello from Actix!")
+    }
+   
+    HttpServer::new(move|| {
+        App::new().app_data(web::Data::new(AppState{
+            tx: tx.clone(),
+        })).service(index)
+    })
+    .bind("127.0.0.1:8080")
+    .unwrap()
+    .run()
+    .await
+    .unwrap();
+
+}
 // Our helper method which will read data from stdin and send it along the
 // sender provided.
 async fn read_stdin(tx: futures_channel::mpsc::UnboundedSender<Message>) {
@@ -62,8 +131,8 @@ async fn read_stdin(tx: futures_channel::mpsc::UnboundedSender<Message>) {
             Ok(n) => n,
         };
         buf.truncate(n);
-
-        let s = format!("PRIVMSG #naowh :{}", String::from_utf8(buf).unwrap());
+        let s = String::from_utf8(buf).unwrap();
+        // let s = format!("PRIVMSG #chloe_dev_rust :{}", String::from_utf8(buf).unwrap());
         println!("Sending: {}", s);
         tx.unbounded_send(Message::Text(s.to_string())).unwrap();
     }
@@ -259,7 +328,6 @@ impl TwitchMessage {
         if first.starts_with(":") {
             let mut source_split = first.split("!");
             let nick = source_split.next().unwrap().to_string();
-            println!("{:#?}", nick);
             if nick.contains(":tmi") {
                 source = Some(Source { nick: "".to_string(), host: nick });
                 let command_split = split.next().unwrap();
@@ -400,7 +468,8 @@ impl TwitchMessage {
             };
         }
         let mut source_split = command_split.split("!");
-        let nick = source_split.next().unwrap().to_string();
+        let mut nick = source_split.next().unwrap().to_string();
+        nick = nick.trim_start_matches(":").to_string();
         let host = source_split.next().unwrap().to_string();
         source = Some(Source {
             nick,
