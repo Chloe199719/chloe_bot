@@ -1,8 +1,9 @@
 
 use std::collections::HashSet;
-use std::collections::HashMap;
-use futures_util::future::ready;
-use futures_util::{ future, pin_mut, StreamExt };
+use std::sync::Mutex;
+
+use futures_util::{future::ready};
+use futures_util::StreamExt ;
 
 
 // use futures_util::StreamExt;
@@ -33,26 +34,28 @@ pub async fn message_processing(message: futures_channel::mpsc::UnboundedReceive
 
 
 struct Blacklist {
-    words: HashSet<String>,
+    words: Mutex<HashSet<String>>,
 }
 
 impl Blacklist {
     fn new(words: Vec<&str>) -> Self {
-        let words = words.into_iter().map(|word| word.to_lowercase()).collect();
-        Blacklist { words }
+        let words = words.into_iter().map(|word| word.to_lowercase());
+        let words = words.collect::<HashSet<_>>();
+        Blacklist {  words: Mutex::new( words) }
     }
 
-    fn contains_blacklist_word(&self, message: &str) -> bool {
+     fn contains_blacklist_word(&self, message: &str) -> bool {
         let cleaned_message: String = message.chars()
             .filter(|c| c.is_alphanumeric() || c.is_whitespace())
             .collect::<String>()
             .to_lowercase();
-        
-        for word in &self.words {
+     
+        for word in self.words.lock().unwrap().iter() {
             if self.contains_with_garbage(&cleaned_message, word) {
                 return true; // Message contains blacklisted word
             }
         }
+        
         false
     }
 
