@@ -8,8 +8,7 @@ use std::thread;
 use futures_util::{ future, pin_mut, StreamExt };
 use tokio::io::AsyncReadExt;
 
-use tokio::signal::unix::{SignalKind, signal,
-};
+use tokio::signal::unix::{SignalKind, signal};
 use tokio_tungstenite::{ connect_async, tungstenite::protocol::Message };
 use dotenv::dotenv;
 
