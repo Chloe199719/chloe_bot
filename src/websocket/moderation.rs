@@ -1,33 +1,73 @@
 
-
+use std::collections::HashSet;
 use std::collections::HashMap;
+use futures_util::future::ready;
+use futures_util::{ future, pin_mut, StreamExt };
+
+
+// use futures_util::StreamExt;
+use tokio::time::Instant;
 
 use super::message_parser::{TwitchMessage, MessageTypes, Tags};
 
-pub fn message_processing(message:&TwitchMessage){
-    if message.command.command !=  MessageTypes::PRIVMSG {
-        return;
-    }
-    let mut bad_words:HashMap<String, Vec<String>> = HashMap::new();
-    bad_words.insert(String::from("kekw"), vec![String::from("#naowh")]);
-    bad_words.insert(String::from("pog"), vec![String::from("#naowh")]);
-
-   match bad_words.get(message.command.message.as_str()) {
-        Some(value) => {
-            if value.contains(&message.command.channel) {
-                for tag in &message.tags {
-                    match tag {
-                        Tags::DisplayName(display_name) => {
-                            println!("{} said a bad word in {}", display_name, message.command.channel);
-                        },
-                        _ => {}                     
-                    }
-                }
+pub async fn message_processing(message: futures_channel::mpsc::UnboundedReceiver<TwitchMessage>) {
+    let blacklist = Blacklist::new(vec!["kekw", "pog","eskay"]);
+    
+    let _looper = {
+        message.for_each(move |message|  {
+            let start =Instant::now();
+            if message.command.command !=  MessageTypes::PRIVMSG {
+                return        ready(());
             }
-        },
-        None => {
-           ()
-        }
-   }
+            if blacklist.contains_blacklist_word(&message.command.message) {
+                println!("Message contains blacklisted word");
+                let duration = start.elapsed();
+                println!("Time elapsed in expensive_function() is: {:?}", duration);
+            }
+         
+            ready(())
+        })
+    }.await;
 
 }
+
+
+struct Blacklist {
+    words: HashSet<String>,
+}
+
+impl Blacklist {
+    fn new(words: Vec<&str>) -> Self {
+        let words = words.into_iter().map(|word| word.to_lowercase()).collect();
+        Blacklist { words }
+    }
+
+    fn contains_blacklist_word(&self, message: &str) -> bool {
+        let cleaned_message: String = message.chars()
+            .filter(|c| c.is_alphanumeric() || c.is_whitespace())
+            .collect::<String>()
+            .to_lowercase();
+        
+        for word in &self.words {
+            if self.contains_with_garbage(&cleaned_message, word) {
+                return true; // Message contains blacklisted word
+            }
+        }
+        false
+    }
+
+    fn contains_with_garbage(&self, message: &str, word: &str) -> bool {
+        let chars: Vec<_> = message.chars().collect();
+        let word_chars: Vec<_> = word.chars().collect();
+        if word_chars.len() > chars.len() {
+            return false;
+        }
+        for i in 0..=(chars.len() - word_chars.len()) {
+            if chars[i..(i + word_chars.len())] == word_chars[..] {
+                return true;
+            }
+        }
+        false
+    }
+}
+

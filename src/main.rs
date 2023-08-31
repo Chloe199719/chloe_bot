@@ -21,11 +21,16 @@ async fn main() {
     let parse_token = format!("PASS oauth:{}", auth_token);
     let url = url::Url::parse("ws://irc-ws.chat.twitch.tv:80").unwrap();
     let (stdin_tx, stdin_rx) = futures_channel::mpsc::unbounded();
-    // let (comssender, coms) = futures_channel::mpsc::unbounded();
+
+    // Moderation Thread
+    let (comssender, coms) = futures_channel::mpsc::unbounded();
+    tokio::spawn(message_processing(coms));
     
+    // Stdin Thread
     tokio::spawn(read_stdin(stdin_tx.clone()));
     
     let clone = stdin_tx.clone();
+    // Actix Thread
     let actix_thread = thread::spawn(|| {
         actix_rt::System::new().block_on(start_server(clone));
     });
@@ -51,7 +56,8 @@ async fn main() {
                     //         .unbounded_send(Message::Text("PRIVMSG #chloe_dev_rust :PONG".into()))
                     //         .unwrap();
                     // }
-                    message_processing(&message);
+                    // message_processing(&message);
+                    comssender.unbounded_send(message).unwrap();
                     // println!("{:#?}", message);
                 }
                 Ok(data) => { println!("Received: {:?}", data) }
@@ -69,7 +75,7 @@ async fn main() {
         .unwrap();
     stdin_tx.unbounded_send(Message::Text(parse_token)).unwrap();
     stdin_tx.unbounded_send(Message::Text(String::from("NICK chloe_dev_rust"))).unwrap();
-    stdin_tx.unbounded_send(Message::Text("JOIN #naowh".into())).unwrap();
+    stdin_tx.unbounded_send(Message::Text("JOIN #eskay, #chloe_dev_rust".into())).unwrap();
     
     
     let ws_task = async {
