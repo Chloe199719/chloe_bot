@@ -1,20 +1,23 @@
-#![allow(dead_code, unused_imports)]
-use std::collections::HashSet;
+#![allow(dead_code)]
+// #![allow(unused_imports)]
+
 use std::process::exit;
-use std::sync::{Mutex, Arc};
+use std::sync::Arc;
 use std::thread;
 
-use chloe_bot::websocket::message_parser::TwitchMessage;
-use chloe_bot::websocket::moderation::{message_processing, Blacklist};
 use futures_util::{ future, pin_mut, StreamExt };
-use tokio::io::{ AsyncReadExt, AsyncWriteExt };
-use tokio::select;
+use tokio::io::AsyncReadExt;
+
 use tokio::signal::unix::{SignalKind, signal,
-Signal};
+};
 use tokio_tungstenite::{ connect_async, tungstenite::protocol::Message };
 use dotenv::dotenv;
-use tokio::runtime::Runtime;
-use actix_web::rt::{System, self};
+
+
+use chloe_bot::webserver::server::start_server;
+use chloe_bot::websocket::message_parser::TwitchMessage;
+use chloe_bot::websocket::moderation::{message_processing, Blacklist};
+
 #[tokio::main]
 async fn main() {
     dotenv().ok();
@@ -54,12 +57,7 @@ async fn main() {
                     }
                     println!("{:#?}", data);
                     let message = TwitchMessage::parse_message(data.clone());
-                    // if message.command.message.starts_with("!ping") {
-                    //     stdin_tx
-                    //         .unbounded_send(Message::Text("PRIVMSG #chloe_dev_rust :PONG".into()))
-                    //         .unwrap();
-                    // }
-                    // message_processing(&message);
+
                     comssender.unbounded_send(message).unwrap();
                     // println!("{:#?}", message);
                 }
@@ -67,7 +65,7 @@ async fn main() {
                 Err(e) => eprintln!("Error: {:?}", e),
             }
 
-            // tokio::io::stdout().write_all(&data).await.unwrap();
+  
         })          
     };
    
@@ -105,35 +103,8 @@ async fn main() {
 
     exit(0);
 }
-struct AppState {
-    tx : futures_channel::mpsc::UnboundedSender<Message>,
-    blacklist: Arc<Blacklist>
-}
 
-use actix_web::{get, App, HttpResponse, HttpServer, Responder, web};
-async fn start_server( tx: futures_channel::mpsc::UnboundedSender<Message>, blacklist: Arc<Blacklist>) {
-    use actix_web::{get, App, HttpServer, Responder};
-
-    #[get("/")]
-    async fn index(data: web::Data<AppState>) -> impl Responder {
-        data.tx.unbounded_send(Message::Text("PRIVMSG #chloe_dev_rust :Hello from Actix!".into())).unwrap();
-        data.blacklist.words.lock().unwrap().insert("test".to_string());
-        format!("Hello from Actix!")
-    }
-    let app_state = web::Data::new(AppState {
-        tx,
-      blacklist
-    });
-    HttpServer::new(move|| {
-        App::new().app_data(app_state.clone()).service(index)
-    })
-    .bind("127.0.0.1:8080")
-    .unwrap()
-    .run()
-    .await
-    .unwrap();
-
-}
+// TODO: this is a hacky way to read stdin, but it works for now. Should not be needed in production.
 // Our helper method which will read data from stdin and send it along the
 // sender provided.
 async fn read_stdin(tx: futures_channel::mpsc::UnboundedSender<Message>) {

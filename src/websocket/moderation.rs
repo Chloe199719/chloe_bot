@@ -1,8 +1,9 @@
+#![allow(unused_imports)]
 
 use std::collections::HashSet;
 use std::sync::{Mutex, Arc};
 
-use futures_util::{future::ready};
+use futures_util::future::ready;
 use futures_util::StreamExt ;
 
 
@@ -43,7 +44,7 @@ impl Blacklist {
         let words = words.collect::<HashSet<_>>();
         Blacklist {  words: Mutex::new( words) }
     }
-
+//TODO: Might need to not clean the message just make everything lowercase
      fn contains_blacklist_word(&self, message: &str) -> bool {
         let cleaned_message: String = message.chars()
             .filter(|c| c.is_alphanumeric() || c.is_whitespace())
@@ -74,3 +75,54 @@ impl Blacklist {
     }
 }
 
+#[cfg(test)]
+mod test{
+    use super::Blacklist;
+
+    fn word_list () -> Blacklist {
+        Blacklist::new(vec!["test", "test2","trans","gay","queer","lesbian","lgbt","lgbtq","lgbtq+","lgbtqia","lgbtqia+","lgbtq","nigga"])
+    }
+
+    #[test]
+    fn test_blacklisted_words () {
+        let blacklist = word_list();
+        assert_eq!(blacklist.contains_blacklist_word("test"), true);
+        assert_eq!(blacklist.contains_blacklist_word("test2"), true);
+    }
+    #[test]
+    fn test_blacklisted_words_with_garbage () {
+        let blacklist = word_list();
+        assert_eq!(blacklist.contains_blacklist_word("test!"), true);
+        assert_eq!(blacklist.contains_blacklist_word("test2!"), true);
+    }
+    #[test]
+    fn test_blacklisted_words_with_garbage_and_capitalization () {
+        let blacklist = word_list();
+        assert_eq!(blacklist.contains_blacklist_word("Test!"), true);
+        assert_eq!(blacklist.contains_blacklist_word("Test2!"), true);
+    }
+    #[test]
+    fn test_blacklisted_words_with_garbage_and_capitalization_and_whitespace () {
+        let blacklist = word_list();
+        assert_eq!(blacklist.contains_blacklist_word("Test! "), true);
+        assert_eq!(blacklist.contains_blacklist_word("Test2! "), true);
+    }
+    #[test]
+    fn test_blacklisted_words_with_garbage_and_capitalization_and_whitespace_and_alphanumeric () {
+        let blacklist = word_list();
+        assert_eq!(blacklist.contains_blacklist_word("Test! 123"), true);
+        assert_eq!(blacklist.contains_blacklist_word("Test2! 123"), true);
+    }
+    #[test]
+    fn test_notblacklisted_words () {
+        let blacklist = word_list();
+        assert_eq!(blacklist.contains_blacklist_word("chloe"), false);
+        assert_eq!(blacklist.contains_blacklist_word("eskay"), false);
+    }
+    #[test]
+    fn test_notblacklisted_words_with_garbage () {
+        let blacklist = word_list();
+        assert_eq!(blacklist.contains_blacklist_word("chloe!"), false);
+        assert_eq!(blacklist.contains_blacklist_word("eskay!"), false);
+    }
+}
