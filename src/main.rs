@@ -1,9 +1,11 @@
 #![allow(dead_code, unused_imports)]
+use std::collections::HashSet;
 use std::process::exit;
+use std::sync::{Mutex, Arc};
 use std::thread;
 
 use chloe_bot::websocket::message_parser::TwitchMessage;
-use chloe_bot::websocket::moderation::message_processing;
+use chloe_bot::websocket::moderation::{message_processing, Blacklist};
 use futures_util::{ future, pin_mut, StreamExt };
 use tokio::io::{ AsyncReadExt, AsyncWriteExt };
 use tokio::select;
@@ -23,16 +25,17 @@ async fn main() {
     let (stdin_tx, stdin_rx) = futures_channel::mpsc::unbounded();
 
     // Moderation Thread
+    let black_list = Arc::new(Blacklist::new(vec!["kekw", "pog","eskay"]));
     let (comssender, coms) = futures_channel::mpsc::unbounded();
-    tokio::spawn(message_processing(coms));
+    tokio::spawn(message_processing(coms, black_list.clone()));
     
     // Stdin Thread
     tokio::spawn(read_stdin(stdin_tx.clone()));
     
     let clone = stdin_tx.clone();
     // Actix Thread
-    let actix_thread = thread::spawn(|| {
-        actix_rt::System::new().block_on(start_server(clone));
+    let actix_thread = thread::spawn(move|| {
+        actix_rt::System::new().block_on(start_server(clone, black_list.clone()));
     });
     let mut stream = signal(SignalKind::interrupt()).unwrap();
     let (ws_stream, _) = connect_async(url).await.expect("Failed to connect");
@@ -104,22 +107,25 @@ async fn main() {
 }
 struct AppState {
     tx : futures_channel::mpsc::UnboundedSender<Message>,
+    blacklist: Arc<Blacklist>
 }
 
 use actix_web::{get, App, HttpResponse, HttpServer, Responder, web};
-async fn start_server( tx: futures_channel::mpsc::UnboundedSender<Message>) {
+async fn start_server( tx: futures_channel::mpsc::UnboundedSender<Message>, blacklist: Arc<Blacklist>) {
     use actix_web::{get, App, HttpServer, Responder};
 
     #[get("/")]
     async fn index(data: web::Data<AppState>) -> impl Responder {
         data.tx.unbounded_send(Message::Text("PRIVMSG #chloe_dev_rust :Hello from Actix!".into())).unwrap();
+        data.blacklist.words.lock().unwrap().insert("test".to_string());
         format!("Hello from Actix!")
     }
-   
+    let app_state = web::Data::new(AppState {
+        tx,
+      blacklist
+    });
     HttpServer::new(move|| {
-        App::new().app_data(web::Data::new(AppState{
-            tx: tx.clone(),
-        })).service(index)
+        App::new().app_data(app_state.clone()).service(index)
     })
     .bind("127.0.0.1:8080")
     .unwrap()

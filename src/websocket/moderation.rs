@@ -1,6 +1,6 @@
 
 use std::collections::HashSet;
-use std::sync::Mutex;
+use std::sync::{Mutex, Arc};
 
 use futures_util::{future::ready};
 use futures_util::StreamExt ;
@@ -11,8 +11,8 @@ use tokio::time::Instant;
 
 use super::message_parser::{TwitchMessage, MessageTypes, Tags};
 
-pub async fn message_processing(message: futures_channel::mpsc::UnboundedReceiver<TwitchMessage>) {
-    let blacklist = Blacklist::new(vec!["kekw", "pog","eskay"]);
+pub async fn message_processing(message: futures_channel::mpsc::UnboundedReceiver<TwitchMessage>, blacklist: Arc<Blacklist>) {
+    
     
     let _looper = {
         message.for_each(move |message|  {
@@ -33,12 +33,12 @@ pub async fn message_processing(message: futures_channel::mpsc::UnboundedReceive
 }
 
 
-struct Blacklist {
-    words: Mutex<HashSet<String>>,
+pub struct Blacklist {
+    pub words: Mutex<HashSet<String>>,
 }
 
 impl Blacklist {
-    fn new(words: Vec<&str>) -> Self {
+    pub fn new(words: Vec<&str>) -> Self {
         let words = words.into_iter().map(|word| word.to_lowercase());
         let words = words.collect::<HashSet<_>>();
         Blacklist {  words: Mutex::new( words) }
