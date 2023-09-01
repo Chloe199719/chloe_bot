@@ -5,12 +5,12 @@ use tungstenite::Message;
 // Local imports
 use crate::websocket::moderation::Blacklist;
 struct AppState {
-    tx : futures_channel::mpsc::UnboundedSender<Message>,
+    tx : async_channel::Sender<Message>,
     blacklist: Arc<Blacklist>
 }
 
 
-pub async fn start_server( tx: futures_channel::mpsc::UnboundedSender<Message>, blacklist: Arc<Blacklist>) {
+pub async fn start_server( tx: async_channel::Sender<Message>, blacklist: Arc<Blacklist>) {
 
 
     let app_state = web::Data::new(AppState {
@@ -31,7 +31,7 @@ pub async fn start_server( tx: futures_channel::mpsc::UnboundedSender<Message>, 
 
 #[get("/")]
 async fn index(data: web::Data<AppState>) -> impl Responder {
-    data.tx.unbounded_send(Message::Text("PRIVMSG #chloe_dev_rust :Hello from Actix!".into())).unwrap();
+    data.tx.send(Message::Text("PRIVMSG #chloe_dev_rust :Hello from Actix!".into())).await.unwrap();
     data.blacklist.words.lock().unwrap().insert("test".to_string());
     format!("Hello from Actix!")
 }

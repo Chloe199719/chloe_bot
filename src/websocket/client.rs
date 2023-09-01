@@ -1,9 +1,12 @@
 use futures_util::{StreamExt, pin_mut, future, stream::FusedStream};
-use tokio_tungstenite::{ connect_async, tungstenite::protocol::Message };
+use tokio_tungstenite::{ connect_async, tungstenite::protocol::Message, MaybeTlsStream };
 
 use crate::websocket::message_parser::TwitchMessage;
 
-pub async fn web_socket_client((stdin_tx, stdin_rx): (futures_channel::mpsc::UnboundedSender<Message>, futures_channel::mpsc::UnboundedReceiver<Message>), moderation_sender : futures_channel::mpsc::UnboundedSender<TwitchMessage>) -> () {
+    
+
+
+pub async fn web_socket_client((stdin_tx, stdin_rx): (async_channel::Sender<Message>, async_channel::Receiver<Message>), moderation_sender : futures_channel::mpsc::UnboundedSender<TwitchMessage>) -> () {
     let auth_token = std::env::var("AUTH_TOKEN").expect("AUTH_TOKEN not set");
     let parse_token = format!("PASS oauth:{}", auth_token);
 
@@ -17,20 +20,21 @@ pub async fn web_socket_client((stdin_tx, stdin_rx): (futures_channel::mpsc::Unb
 
     //TODO: Handle this error more gracefully
     loop {
-        let (ws_stream, _) = connect_async(url).await.expect("Failed to connect");
-        let (write, read) = ws_stream.split();
-        let stdin_to_ws = stdin_rx.map(Ok).forward(write);
-        
-        let ws_to_stdout = {    
-            read.for_each(|message| async{
+
     
-            
+    match connect_async(url.clone()).await {
+        Ok((ws_stream,_))=>{
+            backoff = 1;
+            let (write,mut read) = ws_stream.split();
+            let stdin_to_ws = stdin_rx.clone().map(Ok).forward(write);
+            let ws_to_stdout=  async {while let Some(message) = read.next().await {
                 match message {
                     Ok(Message::Text(data)) => {
                         if data.starts_with("PING") {
+                           
                             stdin_tx
-                                .unbounded_send(Message::Text("PONG :tmi.twitch.tv".into()))
-                                .unwrap();
+                                .send(Message::Text("PONG :tmi.twitch.tv".into())).await.unwrap();
+                                
                         }
                         println!("{:#?}", data);
                         let message = TwitchMessage::parse_message(data.clone());
@@ -38,27 +42,46 @@ pub async fn web_socket_client((stdin_tx, stdin_rx): (futures_channel::mpsc::Unb
                         moderation_sender.unbounded_send(message).unwrap();
                         // println!("{:#?}", message);
                     }
+                    Ok(Message::Close(_)) => {
+                        println!("Received Close from Server");
+                        break;
+                    }
                     Ok(data) => { println!("Received: {:?}", data) }
-                    Err(e) => eprintln!("Error: {:?}", e),
+                    Err(e) => {
+                        eprintln!("Error: {:?}", e);
+                        break;
+                    },
                 }
+                
+            }};
+
+            stdin_tx
+            .send(
+                Message::Text("CAP REQ :twitch.tv/membership twitch.tv/tags twitch.tv/commands".into())
+            )
+            .await.unwrap();
+          
+            stdin_tx.send(Message::Text(parse_token.clone())).await.unwrap();
+            stdin_tx.send(Message::Text(String::from("NICK chloe_dev_rust"))).await.unwrap();
+            stdin_tx.send(Message::Text("JOIN #theprimeagen, #chloe_dev_rust".into())).await.unwrap();
+
+            let ws_task = async{
+                pin_mut!(stdin_to_ws, ws_to_stdout);
+                future::select(stdin_to_ws, ws_to_stdout).await;
+            };
+            ws_task.await;
+        }
+        Err(e) => {
+            eprintln!("Error: {:?}", e);
+            println!("Reconnecting in {} seconds", backoff);
+        }
+    } 
+    println!("Reconnecting in {} seconds", backoff);
+    tokio::time::sleep(tokio::time::Duration::from_secs(backoff)).await;
+    backoff = (backoff * factor).min(max_backoff);
+      
+
         
-    
-            })          
-        };
-        
-        // MOVE THIS SOMEWHERE ELSE
-        stdin_tx
-        .unbounded_send(
-            Message::Text("CAP REQ :twitch.tv/membership twitch.tv/tags twitch.tv/commands".into())
-        )
-        .unwrap();
-        stdin_tx.unbounded_send(Message::Text(parse_token)).unwrap();
-        stdin_tx.unbounded_send(Message::Text(String::from("NICK chloe_dev_rust"))).unwrap();
-        stdin_tx.unbounded_send(Message::Text("JOIN #theprimeagen, #chloe_dev_rust".into())).unwrap();
-        let ws_task = async {
-            pin_mut!(stdin_to_ws, ws_to_stdout);
-            future::select(stdin_to_ws, ws_to_stdout).await;
-        };
-        return ws_task.await;
+      
     }
 }

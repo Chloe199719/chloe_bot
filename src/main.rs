@@ -22,7 +22,7 @@ async fn main() {
     dotenv().ok();
     let mut stream = signal(SignalKind::interrupt()).unwrap();
     
-    let (stdin_tx, stdin_rx) = futures_channel::mpsc::unbounded();
+    let (stdin_tx, stdin_rx) = async_channel::unbounded();
 
     // Moderation Thread
     let black_list = Arc::new(Blacklist::new(vec!["kekw", "pog","eskay"]));
@@ -39,7 +39,7 @@ async fn main() {
         actix_rt::System::new().block_on(start_server(clone, black_list.clone()));
     });
 
-    tokio::spawn(web_socket_client((stdin_tx.clone(), stdin_rx),moderator_sender.clone()));
+    tokio::spawn(web_socket_client((stdin_tx.clone(), stdin_rx.clone()),moderator_sender.clone()));
     // let socket =  web_socket_client((stdin_tx.clone(), stdin_rx),moderator_sender.clone());
 
 
@@ -70,7 +70,7 @@ async fn main() {
 // TODO: this is a hacky way to read stdin, but it works for now. Should not be needed in production.
 // Our helper method which will read data from stdin and send it along the
 // sender provided.
-async fn read_stdin(tx: futures_channel::mpsc::UnboundedSender<Message>) {
+async fn read_stdin(tx: async_channel::Sender<Message>) {
     let mut stdin = tokio::io::stdin();
     stdin.read(&mut [0]).await.unwrap();
     loop {
@@ -85,6 +85,6 @@ async fn read_stdin(tx: futures_channel::mpsc::UnboundedSender<Message>) {
         let s = String::from_utf8(buf).unwrap();
         // let s = format!("PRIVMSG #chloe_dev_rust :{}", String::from_utf8(buf).unwrap());
         println!("Sending: {}", s);
-        tx.unbounded_send(Message::Text(s.to_string())).unwrap();
+        tx.send(Message::Text(s.to_string())).await.unwrap();
     }
 }
