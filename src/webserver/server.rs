@@ -27,6 +27,8 @@ pub async fn start_server( tx: futures_channel::mpsc::UnboundedSender<Message>, 
     .unwrap();
 
 }
+
+
 #[get("/")]
 async fn index(data: web::Data<AppState>) -> impl Responder {
     data.tx.unbounded_send(Message::Text("PRIVMSG #chloe_dev_rust :Hello from Actix!".into())).unwrap();
