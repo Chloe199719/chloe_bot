@@ -6,6 +6,7 @@ use std::sync::Arc;
 use std::thread;
 
 
+use chloe_bot::telemetry::telemetry::{get_subscriber, init_subscriber};
 use tokio::io::AsyncReadExt;
 
 use tokio::signal::unix::{SignalKind, signal};
@@ -20,6 +21,8 @@ use chloe_bot::websocket::moderation::{message_processing, Blacklist};
 #[tokio::main]
 async fn main() {
     dotenv().ok();
+    let subscriber = get_subscriber("Chloe Bot".into(), "info".into(), std::io::stdout);
+    init_subscriber(subscriber);
     let mut stream = signal(SignalKind::interrupt()).unwrap();
     
     let (stdin_tx, stdin_rx) = async_channel::unbounded();
@@ -27,11 +30,11 @@ async fn main() {
     // Moderation Thread
     let black_list = Arc::new(Blacklist::new(vec!["kekw", "pog","eskay"]));
     let (moderator_sender, moderator_receiver) = futures_channel::mpsc::unbounded();
-    tokio::spawn(message_processing(moderator_receiver, black_list.clone()));
+    let moderator_thread = tokio::spawn(message_processing(moderator_receiver, black_list.clone()));
     
 
     // Stdin Thread
-    tokio::spawn(read_stdin(stdin_tx.clone()));
+    let std_in_thread = tokio::spawn(read_stdin(stdin_tx.clone()));
     
     let clone = stdin_tx.clone();
     // Actix Thread
@@ -39,7 +42,7 @@ async fn main() {
         actix_rt::System::new().block_on(start_server(clone, black_list.clone()));
     });
 
-    tokio::spawn(web_socket_client((stdin_tx.clone(), stdin_rx.clone()),moderator_sender.clone()));
+    let web_socket_thread = tokio::spawn(web_socket_client((stdin_tx.clone(), stdin_rx.clone()),moderator_sender.clone()));
     // let socket =  web_socket_client((stdin_tx.clone(), stdin_rx),moderator_sender.clone());
 
 
@@ -61,7 +64,9 @@ async fn main() {
 
     //Close A
     actix_thread.join().unwrap();
-    
+    std_in_thread.abort();
+    web_socket_thread.abort();
+    moderator_thread.abort();
     
 
     exit(0);

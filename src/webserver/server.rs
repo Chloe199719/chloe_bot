@@ -12,8 +12,8 @@ struct AppState {
 
 
 pub async fn start_server( tx: async_channel::Sender<Message>, blacklist: Arc<Blacklist>) {
-
-
+    let x  =String::from("test");
+    let _y:Arc<str> = Arc::from(x);
     let app_state = web::Data::new(AppState {
         tx,
         blacklist

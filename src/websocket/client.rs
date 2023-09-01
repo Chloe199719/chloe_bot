@@ -3,8 +3,6 @@ use tokio_tungstenite::{ connect_async, tungstenite::protocol::Message };
 
 use crate::websocket::message_parser::TwitchMessage;
 
-    
-
 
 pub async fn web_socket_client((stdin_tx, stdin_rx): (async_channel::Sender<Message>, async_channel::Receiver<Message>), moderation_sender : futures_channel::mpsc::UnboundedSender<TwitchMessage>) -> () {
     let auth_token = std::env::var("AUTH_TOKEN").expect("AUTH_TOKEN not set");
@@ -20,7 +18,7 @@ pub async fn web_socket_client((stdin_tx, stdin_rx): (async_channel::Sender<Mess
 
     //TODO: Handle this error more gracefully
     loop {
-        
+
         match connect_async(url.clone()).await {
             Ok((ws_stream,_))=>{
                 backoff = 1;
@@ -30,14 +28,16 @@ pub async fn web_socket_client((stdin_tx, stdin_rx): (async_channel::Sender<Mess
                     match message {
                         Ok(Message::Text(data)) => {
                             if data.starts_with("PING") {
-                            
+                                
                                 stdin_tx
                                     .send(Message::Text("PONG :tmi.twitch.tv".into())).await.unwrap();
                                     
                             }
                             println!("{:#?}", data);
                             let message = TwitchMessage::parse_message(data.clone());
-
+                            // let text = &message.command.message;
+                            // tracing::info!("Message: {:?}", text);
+                            
                             moderation_sender.unbounded_send(message).unwrap();
                             // println!("{:#?}", message);
                         }
