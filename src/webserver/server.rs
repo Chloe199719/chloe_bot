@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use actix_web::{get, App, HttpResponse, HttpServer, Responder, web};
-use tungstenite::Message;
+use tokio_tungstenite::tungstenite::Message;
+
 
 // Local imports
 use crate::websocket::moderation::Blacklist;

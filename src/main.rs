@@ -68,8 +68,6 @@ async fn main() {
 }
 
 // TODO: this is a hacky way to read stdin, but it works for now. Should not be needed in production.
-// Our helper method which will read data from stdin and send it along the
-// sender provided.
 async fn read_stdin(tx: async_channel::Sender<Message>) {
     let mut stdin = tokio::io::stdin();
     stdin.read(&mut [0]).await.unwrap();
