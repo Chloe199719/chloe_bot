@@ -5,17 +5,16 @@ use std::process::exit;
 use std::sync::Arc;
 use std::thread;
 
-use chloe_bot::websocket::client::web_socket_client;
-use futures_util::{ future, pin_mut, StreamExt };
+
 use tokio::io::AsyncReadExt;
 
 use tokio::signal::unix::{SignalKind, signal};
-use tokio_tungstenite::{ connect_async, tungstenite::protocol::Message };
+use tokio_tungstenite::tungstenite::protocol::Message;
 use dotenv::dotenv;
 
-
+// Local imports
+use chloe_bot::websocket::client::web_socket_client;
 use chloe_bot::webserver::server::start_server;
-use chloe_bot::websocket::message_parser::TwitchMessage;
 use chloe_bot::websocket::moderation::{message_processing, Blacklist};
 
 #[tokio::main]
@@ -27,11 +26,10 @@ async fn main() {
 
     // Moderation Thread
     let black_list = Arc::new(Blacklist::new(vec!["kekw", "pog","eskay"]));
-
-    // TODO: Rename this to something better
     let (moderator_sender, moderator_receiver) = futures_channel::mpsc::unbounded();
     tokio::spawn(message_processing(moderator_receiver, black_list.clone()));
     
+
     // Stdin Thread
     tokio::spawn(read_stdin(stdin_tx.clone()));
     
@@ -40,50 +38,9 @@ async fn main() {
     let actix_thread = thread::spawn(move|| {
         actix_rt::System::new().block_on(start_server(clone, black_list.clone()));
     });
-    // let (ws_stream, _) = connect_async(url).await.expect("Failed to connect");
-    // let (write, read) = ws_stream.split();
 
-    // let stdin_to_ws = stdin_rx.map(Ok).forward(write);
-    
-    // let ws_to_stdout = {    
-    //     read.for_each(|message| async {
-    //         match message {
-    //             Ok(Message::Text(data)) => {
-    //                 if data.starts_with("PING") {
-    //                     stdin_tx
-    //                         .unbounded_send(Message::Text("PONG :tmi.twitch.tv".into()))
-    //                         .unwrap();
-    //                 }
-    //                 println!("{:#?}", data);
-    //                 let message = TwitchMessage::parse_message(data.clone());
-
-    //                 comssender.unbounded_send(message).unwrap();
-    //                 // println!("{:#?}", message);
-    //             }
-    //             Ok(data) => { println!("Received: {:?}", data) }
-    //             Err(e) => eprintln!("Error: {:?}", e),
-    //         }
-
-  
-    //     })          
-    // };
-    
-    let socket =  web_socket_client((stdin_tx.clone(), stdin_rx),moderator_sender.clone());
-    // stdin_tx
-    //     .unbounded_send(
-    //         Message::Text("CAP REQ :twitch.tv/membership twitch.tv/tags twitch.tv/commands".into())
-    //     )
-    //     .unwrap();
-    // stdin_tx.unbounded_send(Message::Text(parse_token)).unwrap();
-    // stdin_tx.unbounded_send(Message::Text(String::from("NICK chloe_dev_rust"))).unwrap();
-    // stdin_tx.unbounded_send(Message::Text("JOIN #theprimeagen, #chloe_dev_rust".into())).unwrap();
-    
-    
-    // let ws_task = async {
-    //     pin_mut!(stdin_to_ws, ws_to_stdout);
-    //     future::select(stdin_to_ws, ws_to_stdout).await;
-    // };
-    
+    tokio::spawn(web_socket_client((stdin_tx.clone(), stdin_rx),moderator_sender.clone()));
+    // let socket =  web_socket_client((stdin_tx.clone(), stdin_rx),moderator_sender.clone());
 
 
 
@@ -97,12 +54,12 @@ async fn main() {
         _ = ctrl_c_task => {
             eprintln!("Ctrl+C received.");
         }
-        _ = socket => {
-            eprintln!("Socket task completed.");
-        }
+        // _ = socket => {
+        //     eprintln!("Socket task completed.");
+        // }
     }
 
-    // Now, you can close the Actix server and any other tasks if necessary
+    //Close A
     actix_thread.join().unwrap();
     
     
