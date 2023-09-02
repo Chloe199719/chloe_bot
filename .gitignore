@@ -4,3 +4,4 @@ file.txt
 test.txt
 123
 .vscode
+/logs/*

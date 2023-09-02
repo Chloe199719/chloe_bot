@@ -14,8 +14,8 @@ pub fn get_subscriber<Sink>(
     let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_|
         EnvFilter::new(env_filter)
     );
-    let formating_layer = BunyanFormattingLayer::new(name.into(), sink);
-    Registry::default().with(env_filter).with(JsonStorageLayer).with(formating_layer)
+    let formatting_layer = BunyanFormattingLayer::new(name.into(), sink);
+    Registry::default().with(env_filter).with(JsonStorageLayer).with(formatting_layer)
 }
 
 pub fn init_subscriber(subscriber: impl Subscriber + Send + Sync) {

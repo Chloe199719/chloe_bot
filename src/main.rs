@@ -6,14 +6,14 @@ use std::sync::Arc;
 use std::thread;
 
 
-use chloe_bot::telemetry::telemetry::{get_subscriber, init_subscriber};
-use tokio::io::AsyncReadExt;
 
+use tokio::io::AsyncReadExt;
 use tokio::signal::unix::{SignalKind, signal};
 use tokio_tungstenite::tungstenite::protocol::Message;
 use dotenv::dotenv;
 
 // Local imports
+use chloe_bot::telemetry::telemetry::{get_subscriber, init_subscriber};
 use chloe_bot::websocket::client::web_socket_client;
 use chloe_bot::webserver::server::start_server;
 use chloe_bot::websocket::moderation::{message_processing, Blacklist};
@@ -21,15 +21,19 @@ use chloe_bot::websocket::moderation::{message_processing, Blacklist};
 #[tokio::main]
 async fn main() {
     dotenv().ok();
-    let subscriber = get_subscriber("Chloe Bot".into(), "info".into(), std::io::stdout);
+    let time = chrono::Local::now().to_string();
+    let file = std::fs::File::create(format!("logs/chloe-bot-{}.log",time)).unwrap();
+    let subscriber = get_subscriber("Chloe Bot".into(), "info".into(), file);
     init_subscriber(subscriber);
     let mut stream = signal(SignalKind::interrupt()).unwrap();
     
+
+    // Channels
     let (stdin_tx, stdin_rx) = async_channel::unbounded();
+    let (moderator_sender, moderator_receiver) = futures_channel::mpsc::unbounded();
 
     // Moderation Thread
     let black_list = Arc::new(Blacklist::new(vec!["kekw", "pog","eskay"]));
-    let (moderator_sender, moderator_receiver) = futures_channel::mpsc::unbounded();
     let moderator_thread = tokio::spawn(message_processing(moderator_receiver, black_list.clone()));
     
 
@@ -43,7 +47,7 @@ async fn main() {
     });
 
     let web_socket_thread = tokio::spawn(web_socket_client((stdin_tx.clone(), stdin_rx.clone()),moderator_sender.clone()));
-    // let socket =  web_socket_client((stdin_tx.clone(), stdin_rx),moderator_sender.clone());
+
 
 
 
@@ -62,7 +66,7 @@ async fn main() {
         // }
     }
 
-    //Close A
+    //Close Threads
     actix_thread.join().unwrap();
     std_in_thread.abort();
     web_socket_thread.abort();
