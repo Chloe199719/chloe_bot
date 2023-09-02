@@ -17,14 +17,13 @@ pub async fn message_processing(message: futures_channel::mpsc::UnboundedReceive
     
     let _looper = {
         message.for_each(move |message|  {
-            let start =Instant::now();
+       
             if message.command.command !=  MessageTypes::PRIVMSG {
                 return        ready(());
             }
             if blacklist.contains_blacklist_word(&message.command.message) {
-                println!("Message contains blacklisted word");
-                let duration = start.elapsed();
-                println!("Time elapsed in expensive_function() is: {:?}", duration);
+               tracing::info!("Message: {:?}", message.command.message);
+                
             }
          
             ready(())

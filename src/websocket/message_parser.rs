@@ -1,5 +1,6 @@
 #![allow(dead_code, unused_imports)]
 
+//FIXME: Rework this
 #[derive(Debug, Clone, PartialEq)]
 pub enum MessageTypes {
     PING,

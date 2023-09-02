@@ -1,5 +1,9 @@
+#![allow(unused_imports)]
+#![allow(dead_code)]
+
 use std::sync::Arc;
-use actix_web::{get, App, HttpResponse, HttpServer, Responder, web};
+use actix_web::{get, App, HttpResponse, HttpServer, Responder, web, http::header};
+use serde::Deserialize;
 use tokio_tungstenite::tungstenite::Message;
 
 
@@ -19,7 +23,7 @@ pub async fn start_server( tx: async_channel::Sender<Message>, blacklist: Arc<Bl
         blacklist
     });
     HttpServer::new(move|| {
-        App::new().app_data(app_state.clone()).service(index)
+        App::new().app_data(app_state.clone()).service(index).service(auth_token).service(authenticate)
     })
     .bind("127.0.0.1:8080")
     .unwrap()
@@ -30,9 +34,32 @@ pub async fn start_server( tx: async_channel::Sender<Message>, blacklist: Arc<Bl
 }
 
 
+#[get("/authenticate")]
+async fn authenticate(_data: web::Data<AppState>) -> impl Responder {
+    HttpResponse::MovedPermanently().insert_header(("Location","https://id.twitch.tv/oauth2/authorize?response_type=code&client_id=9wexo28wfkm476ztq18vafo6xio5la&redirect_uri=http://localhost:8080/auth&scope=moderator:manage:chat_messages")).finish()
+
+}
+
+
 #[get("/")]
-async fn index(data: web::Data<AppState>) -> impl Responder {
-    data.tx.send(Message::Text("PRIVMSG #chloe_dev_rust :Hello from Actix!".into())).await.unwrap();
-    data.blacklist.words.lock().unwrap().insert("test".to_string());
+async fn index(_data: web::Data<AppState>) -> impl Responder {
+    // HttpResponse::MovedPermanently().insert_header(("Location","https://id.twitch.tv/oauth2/authorize?response_type=code&client_id=9wexo28wfkm476ztq18vafo6xio5la&redirect_uri=http://localhost:8080/auth&scope=moderator:manage:chat_messages")).finish()
+    // data.tx.send(Message::Text("PRIVMSG #chloe_dev_rust :Hello from Actix!".into())).await.unwrap();
+    // data.blacklist.words.lock().unwrap().insert("test".to_string());
+    format!("Hello from Actix!")
+}
+
+
+#[derive(Deserialize,Debug)]
+struct QueryAuth {
+    state: String,
+    code: String,
+    scope: String,
+}
+
+#[get("/auth")]
+async fn auth_token(_data: web::Data<AppState>, info:web::Query<QueryAuth>) -> impl Responder {
+  
+    println!("{:#?}", info);
     format!("Hello from Actix!")
 }

@@ -62,7 +62,7 @@ pub async fn web_socket_client((stdin_tx, stdin_rx): (async_channel::Sender<Mess
             
                 stdin_tx.send(Message::Text(parse_token.clone())).await.unwrap();
                 stdin_tx.send(Message::Text(String::from("NICK chloe_dev_rust"))).await.unwrap();
-                stdin_tx.send(Message::Text("JOIN #theprimeagen, #chloe_dev_rust".into())).await.unwrap();
+                stdin_tx.send(Message::Text("JOIN #naowh, #chloe_dev_rust".into())).await.unwrap();
 
                 let ws_task = async{
                     pin_mut!(stdin_to_ws, ws_to_stdout);
