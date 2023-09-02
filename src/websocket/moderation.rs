@@ -7,11 +7,12 @@ use futures_util::future::ready;
 use futures_util::StreamExt ;
 
 
-// use futures_util::StreamExt;
+
 use tokio::time::Instant;
 
 use super::message_parser::{TwitchMessage, MessageTypes, Tags};
 
+#[tracing::instrument]
 pub async fn message_processing(message: futures_channel::mpsc::UnboundedReceiver<TwitchMessage>, blacklist: Arc<Blacklist>) {
     
     
@@ -32,7 +33,7 @@ pub async fn message_processing(message: futures_channel::mpsc::UnboundedReceive
 
 }
 
-
+#[derive(Debug)]
 pub struct Blacklist {
     pub words: Mutex<HashSet<String>>,
 }

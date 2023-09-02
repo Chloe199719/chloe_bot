@@ -17,22 +17,26 @@ use chloe_bot::telemetry::telemetry::{get_subscriber, init_subscriber};
 use chloe_bot::websocket::client::web_socket_client;
 use chloe_bot::webserver::server::start_server;
 use chloe_bot::websocket::moderation::{message_processing, Blacklist};
+use tracing::info;
 
+#[tracing::instrument]
 #[tokio::main]
 async fn main() {
     dotenv().ok();
-    let time = chrono::Local::now().to_string();
-    let file = std::fs::File::create(format!("logs/chloe-bot-{}.log",time)).unwrap();
-    let subscriber = get_subscriber("Chloe Bot".into(), "info".into(), file);
+    // let time = chrono::Local::now().to_string();
+    // let file = std::fs::File::create(format!("logs/chloe-bot-{}.log",time)).expect("Unable to create log file");
+    let subscriber = get_subscriber("Chloe Bot".into(), "info".into(), std::io::stdout);
     init_subscriber(subscriber);
     let mut stream = signal(SignalKind::interrupt()).unwrap();
     
 
     // Channels
+    info!("Creating Channels");
     let (stdin_tx, stdin_rx) = async_channel::unbounded();
     let (moderator_sender, moderator_receiver) = futures_channel::mpsc::unbounded();
 
     // Moderation Thread
+    info!("Creating Moderation Thread");
     let black_list = Arc::new(Blacklist::new(vec!["kekw", "pog","eskay"]));
     let moderator_thread = tokio::spawn(message_processing(moderator_receiver, black_list.clone()));
     
