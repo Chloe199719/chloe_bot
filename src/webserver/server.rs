@@ -125,31 +125,25 @@ async fn auth_token(req: HttpRequest ,info:web::Query<QueryAuth>, data: web::Dat
      match record {
          Ok(row) => {
             // Handle 
-            match row.success {
-                Some(true) => {
-                    let mut  map = HashMap::new();
-                    let oldtoken = row.old_access_token.unwrap().clone();
-                    map.insert("client_id", data.client_id.as_str());
-                    map.insert("token", &oldtoken.as_str());
-                    let res=    data.req_client.post("https://id.twitch.tv/oauth2/revoke").form(&map).send().await.unwrap();
-                    println!("{:#?}", res);
-                },
-                Some(false) => {
-                    println!("User Inserted");
-                },
-                None => {
-                   
-                }
-            }
-          },
-         Err(sqlx::Error::RowNotFound) =>{
-            println!("Row not found");
-         },
+            let mut  map = HashMap::new();
+            let oldtoken = row.old_access_token.unwrap().clone();
+            map.insert("client_id", data.client_id.as_str());
+            map.insert("token", &oldtoken.as_str());
+            let res=    data.req_client.post("https://id.twitch.tv/oauth2/revoke").form(&map).send().await.unwrap();
+            println!("{:#?}", res);
+        }
         Err(e) => {
             tracing::error!("Error inserting user into database: {:?}", e);
         }
+    }
+    
+            
+            
+                
+              
+                
+          
          
-     }
 
    
     //Handle Login 
@@ -163,7 +157,7 @@ async fn auth_token(req: HttpRequest ,info:web::Query<QueryAuth>, data: web::Dat
 // #[derive(Deserialize,Debug)]
 #[derive(sqlx::FromRow,Debug)]
 struct ReturnSQL{
-    success: Option<bool>,
+    success: bool,
     old_name: Option<String>,
     old_scopes: Option<String>,
     old_refresh_token: Option<String>,
