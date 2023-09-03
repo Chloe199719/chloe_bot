@@ -17,6 +17,8 @@ use tokio_tungstenite::tungstenite::Message;
 
 // Local imports
 use crate::websocket::moderation::Blacklist;
+
+use super::routes::oauth::auth::auth_token;
 pub struct AppState {
     pub tx : async_channel::Sender<Message>,
     pub blacklist: Arc<Blacklist>,
@@ -76,116 +78,6 @@ async fn index(_data: web::Data<AppState>) -> impl Responder {
 }
 
 
-#[derive(Deserialize,Debug)]
-struct QueryAuth {
-    state: String,
-    code: String,
-    scope: String,
-}
-
-#[get("/auth")]
-async fn auth_token(req: HttpRequest ,info:web::Query<QueryAuth>, data: web::Data<AppState>) -> impl Responder {
-    if let Some(cookie) = req.cookie("oauth_state") {
-        if cookie.value() != info.state {
-            return HttpResponse::BadRequest().body("Invalid State");
-        }
-    } else {
-        return HttpResponse::BadRequest().body("Invalid State");
-    }
-
-    //TODO: uri from state 
-    let params = [
-        ("client_id", data.client_id.as_str()),
-        ("client_secret", data.client_secret.as_str()),
-        ("code", info.code.as_str()),
-        ("grant_type", "authorization_code"),
-        ("redirect_uri", "https://localhost:8080/auth"),
-    ];
-   
-    // TODO : Handle errors
-    let token_res:AuthResponse = data.req_client.post("https://id.twitch.tv/oauth2/token").form(&params).send().await.unwrap().json().await.unwrap();
-    let validate_res:VerifyResponse = data.req_client.get("https://id.twitch.tv/oauth2/validate").bearer_auth(&token_res.access_token).send().await.unwrap().json().await.unwrap();
-    let scopes:String = validate_res.scopes.join(",");
-    // TODO: Store tokens in a database handle error
-
-
-    let record:Result<ReturnSQL, sqlx::Error> =sqlx::query_as(
-        r#"
-        SELECT * FROM upsert_user($1,$2,$3,$4,$5,$6)
-        "#
-
-    )
-    .bind(&validate_res.login)
-    .bind(&validate_res.user_id)
-    .bind(&scopes)
-    .bind(&token_res.access_token)
-    .bind(&token_res.refresh_token)
-    .bind(&token_res.expires_in)
-    .fetch_one(&data.pg_pool).await;
-     match record {
-         Ok(row) => {
-            // Handle 
-            let mut  map = HashMap::new();
-            let oldtoken = row.old_access_token.unwrap().clone();
-            map.insert("client_id", data.client_id.as_str());
-            map.insert("token", &oldtoken.as_str());
-            let _res=    data.req_client.post("https://id.twitch.tv/oauth2/revoke").form(&map).send().await.unwrap();
-        
-        }
-        Err(e) => {
-            tracing::error!("Error inserting user into database: {:?}", e);
-        }
-    }
-
-            
-            
-                
-              
-                
-          
-         
-
-   
-    //Handle Login 
-    //TODO: start listening to chat messages for this user
-    //TODO: Set bot to mod for this user
-    // println!("{:#?}, {:#?}", token_res,validate_res);
-
-    HttpResponse::Ok().body("Hello")
-}
-
-// #[derive(Deserialize,Debug)]
-#[derive(sqlx::FromRow,Debug)]
-struct ReturnSQL{
-    success: bool,
-    old_name: Option<String>,
-    old_scopes: Option<String>,
-    old_refresh_token: Option<String>,
-    old_access_token: Option<String>,
-    old_expires_in: Option<i32>,
-    old_created_at: Option<chrono::NaiveDateTime>,
-    old_updated_at: Option<chrono::NaiveDateTime>,
-}
-
-
-
-#[derive(Deserialize,Debug)]
-struct AuthResponse {
-    access_token: String,
-    refresh_token: String,
-    expires_in: i32,
-    scope: Vec<String>,
-    token_type: String,
-}
-#[derive(Deserialize,Debug)]
-pub struct VerifyResponse {
-    client_id: String,
-    login: String,
-    scopes: Vec<String>,
-    user_id: String,
-    expires_in: u64,
-}
-
 
 
 
@@ -194,8 +86,5 @@ fn generate_state() -> String {
         .sample_iter(&Alphanumeric)
         .take(32)
         .map(char::from)
-        .collect::<String>()
-
-    // Store this state value in a session or a secure cookie
-    
+        .collect::<String>()    
 }
