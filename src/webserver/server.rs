@@ -1,10 +1,16 @@
 #![allow(unused_imports)]
 #![allow(dead_code)]
 
+use std::env;
 use std::sync::Arc;
+use actix_web::HttpRequest;
+use actix_web::cookie::Cookie;
 use actix_web::{get, App, HttpResponse, HttpServer, Responder, web, http::header};
 use openssl::ssl::{SslAcceptor, SslMethod};
+use rand::Rng;
+use rand::distributions::Alphanumeric;
 use serde::Deserialize;
+use sqlx::{Pool, Postgres};
 use tokio_tungstenite::tungstenite::Message;
 
 
@@ -12,18 +18,25 @@ use tokio_tungstenite::tungstenite::Message;
 use crate::websocket::moderation::Blacklist;
 struct AppState {
     tx : async_channel::Sender<Message>,
-    blacklist: Arc<Blacklist>
+    blacklist: Arc<Blacklist>,
+    req_client: reqwest::Client,
+    client_id: String,
+    client_secret: String,
 }
 
 
-pub async fn start_server( tx: async_channel::Sender<Message>, blacklist: Arc<Blacklist>) {
+pub async fn start_server( tx: async_channel::Sender<Message>, blacklist: Arc<Blacklist>, pool: Pool<Postgres>) {
+    let req_client = reqwest::Client::new();
     let mut builder =SslAcceptor::mozilla_intermediate(SslMethod::tls()).unwrap();
     builder.set_private_key_file("key.pem", openssl::ssl::SslFiletype::PEM).unwrap();
     builder.set_certificate_chain_file("cert.pem").unwrap();
 
     let app_state = web::Data::new(AppState {
         tx,
-        blacklist
+        blacklist,
+        req_client,
+        client_id: env::var("CLIENT_ID").expect("No Client ID"),
+        client_secret: env::var("CLIENT_SECRET").expect("No Client Secret")
     });
     HttpServer::new(move|| {
         App::new().app_data(app_state.clone()).service(index).service(auth_token).service(authenticate)
@@ -39,7 +52,14 @@ pub async fn start_server( tx: async_channel::Sender<Message>, blacklist: Arc<Bl
 
 #[get("/authenticate")]
 async fn authenticate(_data: web::Data<AppState>) -> impl Responder {
-    HttpResponse::MovedPermanently().insert_header(("Location","https://id.twitch.tv/oauth2/authorize?response_type=code&client_id=9wexo28wfkm476ztq18vafo6xio5la&redirect_uri=http://localhost:8080/auth&scope=moderator:manage:chat_messages")).finish()
+    let state = generate_state();
+
+    let cookie = Cookie::build("oauth_state", &state).http_only(true).finish();
+    // TODO: make client_id an env variable and make the redirect url a env variable
+    //TODO: Add correct scopes
+    let redirect_url = format!("https://id.twitch.tv/oauth2/authorize?response_type=code&client_id=9wexo28wfkm476ztq18vafo6xio5la&redirect_uri=https://localhost:8080/auth&scope=moderator:manage:chat_messages&state={}", state);
+
+    HttpResponse::MovedPermanently().insert_header(("Location",redirect_url)).cookie(cookie).finish()
 
 }
 
@@ -61,8 +81,65 @@ struct QueryAuth {
 }
 
 #[get("/auth")]
-async fn auth_token(_data: web::Data<AppState>, info:web::Query<QueryAuth>) -> impl Responder {
-  
-    println!("{:#?}", info);
-    format!("Hello from Actix!")
+async fn auth_token(req: HttpRequest ,info:web::Query<QueryAuth>, data: web::Data<AppState>) -> impl Responder {
+    if let Some(cookie) = req.cookie("oauth_state") {
+        if cookie.value() != info.state {
+            return HttpResponse::BadRequest().body("Invalid State");
+        }
+    } else {
+        return HttpResponse::BadRequest().body("Invalid State");
+    }
+
+    //TODO: uri from state 
+    let params = [
+        ("client_id", data.client_id.as_str()),
+        ("client_secret", data.client_secret.as_str()),
+        ("code", info.code.as_str()),
+        ("grant_type", "authorization_code"),
+        ("redirect_uri", "https://localhost:8080/auth"),
+    ];
+   
+    // TODO : Handle errors
+    let token_res:AuthResponse = data.req_client.post("https://id.twitch.tv/oauth2/token").form(&params).send().await.unwrap().json().await.unwrap();
+    let validate_res:VerifyResponse = data.req_client.get("https://id.twitch.tv/oauth2/validate").bearer_auth(&token_res.access_token).send().await.unwrap().json().await.unwrap();
+
+    //TODO: Store tokens in a database
+
+    //Handle Login 
+    //TODO: start listening to chat messages for this user
+    //TODO: Set bot to mod for this user
+    println!("{:#?}, {:#?}", token_res,validate_res);
+
+    HttpResponse::Ok().body("Hello")
+}
+
+#[derive(Deserialize,Debug)]
+struct AuthResponse {
+    access_token: String,
+    refresh_token: String,
+    expires_in: u64,
+    scope: Vec<String>,
+    token_type: String,
+}
+#[derive(Deserialize,Debug)]
+pub struct VerifyResponse {
+    client_id: String,
+    login: String,
+    scopes: Vec<String>,
+    user_id: String,
+    expires_in: u64,
+}
+
+
+
+
+fn generate_state() -> String {
+    let random_state: String = rand::thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(32)
+        .map(char::from)
+        .collect();
+
+    // Store this state value in a session or a secure cookie
+    random_state
 }

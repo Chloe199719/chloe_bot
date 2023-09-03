@@ -3,10 +3,12 @@
 
 use std::process::exit;
 use std::sync::Arc;
-use std::thread;
+use std::{thread, env};
 
 
 
+
+use sqlx::PgPool;
 use tokio::io::AsyncReadExt;
 use tokio::signal::unix::{SignalKind, signal};
 use tokio_tungstenite::tungstenite::protocol::Message;
@@ -23,12 +25,19 @@ use tracing::info;
 #[tokio::main]
 async fn main() {
     dotenv().ok();
+    //
+    
     // let time = chrono::Local::now().to_string();
     // let file = std::fs::File::create(format!("logs/chloe-bot-{}.log",time)).expect("Unable to create log file");
     let subscriber = get_subscriber("Chloe Bot".into(), "info".into(), std::io::stdout);
     init_subscriber(subscriber);
     let mut stream = signal(SignalKind::interrupt()).unwrap();
     
+    // Database Connections
+    let connection_pool = PgPool::connect(
+        &env::var("DATABASE_URL").expect("DATABASE_URL not set"),
+    ).await.expect("Failed to connect to Postgres.");
+
 
     // Channels
     info!("Creating Channels");
@@ -47,7 +56,7 @@ async fn main() {
     let clone = stdin_tx.clone();
     // Actix Thread
     let actix_thread = thread::spawn(move|| {
-        actix_rt::System::new().block_on(start_server(clone, black_list.clone()));
+        actix_rt::System::new().block_on(start_server(clone, black_list.clone(),connection_pool.clone()));
     });
 
     let web_socket_thread = tokio::spawn(web_socket_client((stdin_tx.clone(), stdin_rx.clone()),moderator_sender.clone()));
