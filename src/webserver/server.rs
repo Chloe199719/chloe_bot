@@ -129,14 +129,14 @@ async fn auth_token(req: HttpRequest ,info:web::Query<QueryAuth>, data: web::Dat
             let oldtoken = row.old_access_token.unwrap().clone();
             map.insert("client_id", data.client_id.as_str());
             map.insert("token", &oldtoken.as_str());
-            let res=    data.req_client.post("https://id.twitch.tv/oauth2/revoke").form(&map).send().await.unwrap();
-            println!("{:#?}", res);
+            let _res=    data.req_client.post("https://id.twitch.tv/oauth2/revoke").form(&map).send().await.unwrap();
+        
         }
         Err(e) => {
             tracing::error!("Error inserting user into database: {:?}", e);
         }
     }
-    
+
             
             
                 
@@ -190,12 +190,12 @@ pub struct VerifyResponse {
 
 
 fn generate_state() -> String {
-    let random_state: String = rand::thread_rng()
+    rand::thread_rng()
         .sample_iter(&Alphanumeric)
         .take(32)
         .map(char::from)
-        .collect();
+        .collect::<String>()
 
     // Store this state value in a session or a secure cookie
-    random_state
+    
 }
