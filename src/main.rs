@@ -10,6 +10,7 @@ use std::{thread, env};
 
 use sqlx::PgPool;
 use tokio::io::AsyncReadExt;
+
 use tokio::signal::unix::{SignalKind, signal};
 use tokio_tungstenite::tungstenite::protocol::Message;
 use dotenv::dotenv;
@@ -26,6 +27,7 @@ use tracing::info;
 async fn main() {
     dotenv().ok();
     //
+   
     
     // let time = chrono::Local::now().to_string();
     // let file = std::fs::File::create(format!("logs/chloe-bot-{}.log",time)).expect("Unable to create log file");

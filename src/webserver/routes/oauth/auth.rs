@@ -156,6 +156,7 @@ async fn validate_request(pool:Pool<Postgres> ,client:Client, token: &String) ->
                         match query {
                             Ok(_) =>{}
                             Err(e) => {
+                                // TODO: Make so the bot DEPARTS the channel
                                 tracing::error!("Error deleting user from database with token: {} Error: {:?}",token ,e);
                             }
                         }
