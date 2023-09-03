@@ -1,6 +1,7 @@
 #![allow(unused_imports)]
 #![allow(dead_code)]
 
+use std::collections::HashMap;
 use std::env;
 use std::sync::Arc;
 use actix_web::HttpRequest;
@@ -126,18 +127,21 @@ async fn auth_token(req: HttpRequest ,info:web::Query<QueryAuth>, data: web::Dat
             // Handle 
             match row.success {
                 Some(true) => {
-                    println!("User Inserted");
+                    let mut  map = HashMap::new();
+                    let oldtoken = row.old_access_token.unwrap().clone();
+                    map.insert("client_id", data.client_id.as_str());
+                    map.insert("token", &oldtoken.as_str());
+                    let res=    data.req_client.post("https://id.twitch.tv/oauth2/revoke").form(&map).send().await.unwrap();
+                    println!("{:#?}", res);
                 },
                 Some(false) => {
-                    println!("User Updated");
+                    println!("User Inserted");
                 },
                 None => {
-                    println!("User Inserted");
+                   
                 }
             }
-            println!("{:#?}", row.success);
-
-         },
+          },
          Err(sqlx::Error::RowNotFound) =>{
             println!("Row not found");
          },
@@ -151,7 +155,7 @@ async fn auth_token(req: HttpRequest ,info:web::Query<QueryAuth>, data: web::Dat
     //Handle Login 
     //TODO: start listening to chat messages for this user
     //TODO: Set bot to mod for this user
-    println!("{:#?}, {:#?}", token_res,validate_res);
+    // println!("{:#?}, {:#?}", token_res,validate_res);
 
     HttpResponse::Ok().body("Hello")
 }
