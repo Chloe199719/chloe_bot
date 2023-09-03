@@ -17,13 +17,13 @@ use tokio_tungstenite::tungstenite::Message;
 
 // Local imports
 use crate::websocket::moderation::Blacklist;
-struct AppState {
-    tx : async_channel::Sender<Message>,
-    blacklist: Arc<Blacklist>,
-    req_client: reqwest::Client,
-    client_id: String,
-    client_secret: String,
-    pg_pool: Pool<Postgres>,
+pub struct AppState {
+    pub tx : async_channel::Sender<Message>,
+    pub blacklist: Arc<Blacklist>,
+    pub req_client: reqwest::Client,
+    pub client_id: String,
+    pub client_secret: String,
+    pub pg_pool: Pool<Postgres>,
 }
 
 
