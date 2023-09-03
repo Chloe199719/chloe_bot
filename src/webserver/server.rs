@@ -22,6 +22,7 @@ struct AppState {
     req_client: reqwest::Client,
     client_id: String,
     client_secret: String,
+    pg_pool: Pool<Postgres>,
 }
 
 
@@ -36,7 +37,8 @@ pub async fn start_server( tx: async_channel::Sender<Message>, blacklist: Arc<Bl
         blacklist,
         req_client,
         client_id: env::var("CLIENT_ID").expect("No Client ID"),
-        client_secret: env::var("CLIENT_SECRET").expect("No Client Secret")
+        client_secret: env::var("CLIENT_SECRET").expect("No Client Secret"),
+        pg_pool: pool,
     });
     HttpServer::new(move|| {
         App::new().app_data(app_state.clone()).service(index).service(auth_token).service(authenticate)
