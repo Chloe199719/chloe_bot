@@ -16,18 +16,19 @@ path = "src/lib.rs"
 path = "src/main.rs"
 name = "chloe_bot"
 
+
 [dependencies]
-tokio-tungstenite = "*"
+tokio-tungstenite = {features = ["native-tls"] , version = "*"}
 tokio = { version = "1.32.0", features = ["full","signal"] }
 futures = "0.3"
 futures-util = { version = "0.3.28", default-features = false, features = ["sink", "std"] }
 futures-channel = "0.3.28"
 async-channel = "1.9.0"
-actix-web = "4"
+actix-web =  {version="4", features = ["openssl"]}
 actix-rt = "2.2.0"
-
+reqwest = { version = "0.11", features = ["json"] }
 url = "2.3.1"
-
+openssl = { version = "0.10", features = ["v110"] }
 log = "0.4.17"
 env_logger = "0.10.0"
 dotenv = "0.15.0"
@@ -50,3 +51,8 @@ tracing-actix-web = "0.7"
 version ="0.6"
 default-features = false
 features = ["postgres", "runtime-tokio-rustls", "macros", "chrono","uuid", "migrate"]
+
+[dependencies.native-tls-crate]
+optional = true
+package = "native-tls"
+version = "0.2.3"

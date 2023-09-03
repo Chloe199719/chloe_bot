@@ -3,6 +3,7 @@
 
 use std::sync::Arc;
 use actix_web::{get, App, HttpResponse, HttpServer, Responder, web, http::header};
+use openssl::ssl::{SslAcceptor, SslMethod};
 use serde::Deserialize;
 use tokio_tungstenite::tungstenite::Message;
 
@@ -16,8 +17,10 @@ struct AppState {
 
 
 pub async fn start_server( tx: async_channel::Sender<Message>, blacklist: Arc<Blacklist>) {
-    let x  =String::from("test");
-    let _y:Arc<str> = Arc::from(x);
+    let mut builder =SslAcceptor::mozilla_intermediate(SslMethod::tls()).unwrap();
+    builder.set_private_key_file("key.pem", openssl::ssl::SslFiletype::PEM).unwrap();
+    builder.set_certificate_chain_file("cert.pem").unwrap();
+
     let app_state = web::Data::new(AppState {
         tx,
         blacklist
@@ -25,7 +28,7 @@ pub async fn start_server( tx: async_channel::Sender<Message>, blacklist: Arc<Bl
     HttpServer::new(move|| {
         App::new().app_data(app_state.clone()).service(index).service(auth_token).service(authenticate)
     })
-    .bind("127.0.0.1:8080")
+    .bind_openssl("127.0.0.1:8080",builder)
     .unwrap()
     .run()
     .await

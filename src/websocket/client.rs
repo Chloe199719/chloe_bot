@@ -9,7 +9,7 @@ pub async fn web_socket_client((stdin_tx, stdin_rx): (async_channel::Sender<Mess
     let parse_token = format!("PASS oauth:{}", auth_token);
 
     // TODO: Make ENV Maybe? or switch  using tls
-    let url = url::Url::parse("ws://irc-ws.chat.twitch.tv:80").unwrap();
+    let url = url::Url::parse("wss://irc-ws.chat.twitch.tv:443").unwrap();
 
     let mut backoff:u64 = 1;
     let max_backoff:u64 = 300;
