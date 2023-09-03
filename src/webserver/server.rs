@@ -105,8 +105,56 @@ async fn auth_token(req: HttpRequest ,info:web::Query<QueryAuth>, data: web::Dat
     let token_res:AuthResponse = data.req_client.post("https://id.twitch.tv/oauth2/token").form(&params).send().await.unwrap().json().await.unwrap();
     let validate_res:VerifyResponse = data.req_client.get("https://id.twitch.tv/oauth2/validate").bearer_auth(&token_res.access_token).send().await.unwrap().json().await.unwrap();
 
-    //TODO: Store tokens in a database
+    //TODO: Store tokens in a database handle error
+    let record =sqlx::query!(
+        r#"
+        INSERT INTO users (name,user_id,access_token, refresh_token, expires_in)
+        VALUES ($1,$2,$3,$4,$5)
+        RETURNING id;
+        "#,
+        validate_res.login,
+         validate_res.user_id,
+         token_res.access_token,
+         token_res.refresh_token,
+         token_res.expires_in,
 
+    ).fetch_one(&data.pg_pool).await.map_err(
+     |e| {
+        tracing::error!("Error inserting user into database: {:?}", e);
+        e
+     }).unwrap();
+     
+    for scope in &validate_res.scopes {
+        sqlx::query!(
+            r#"
+            INSERT INTO scopes (name)
+            VALUES ($1)
+            ON CONFLICT (name) DO NOTHING
+            "#,
+            
+            scope,
+        ).execute(&data.pg_pool).await.map_err(
+         |e| {
+            tracing::error!("Error inserting user into database: {:?}", e);
+            e
+         }).unwrap();
+    }
+
+    for scope in &validate_res.scopes {
+        sqlx::query!(
+            r#"
+            INSERT INTO user_scopes (id_user, id_scope)
+            VALUES ($1,$2);
+            "#,
+            record.id,
+            scope,
+        ).execute(&data.pg_pool).await.map_err(
+         |e| {
+            tracing::error!("Error inserting user into database: {:?}", e);
+            e
+         }).unwrap();
+    }
+   
     //Handle Login 
     //TODO: start listening to chat messages for this user
     //TODO: Set bot to mod for this user
@@ -119,7 +167,7 @@ async fn auth_token(req: HttpRequest ,info:web::Query<QueryAuth>, data: web::Dat
 struct AuthResponse {
     access_token: String,
     refresh_token: String,
-    expires_in: u64,
+    expires_in: i32,
     scope: Vec<String>,
     token_type: String,
 }
