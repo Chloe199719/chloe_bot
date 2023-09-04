@@ -1,4 +1,5 @@
-pub mod websocket;
-pub mod webserver;
-pub mod telemetry;
 pub mod configuration;
+pub mod telemetry;
+pub mod webserver;
+pub mod websocket;
+
