@@ -144,7 +144,7 @@ async fn token_request(client:Client, params: [(&str, String); 5]) -> Result<Aut
 
 }
 
-async fn validate_request(pool:Pool<Postgres> ,client:Client, token: &String) -> Result<VerifyResponse, reqwest::Error >{
+pub async fn validate_request(pool:Pool<Postgres> ,client:Client, token: &String) -> Result<VerifyResponse, reqwest::Error >{
     let validate_res:VerifyResponse = match client.get("https://id.twitch.tv/oauth2/validate").bearer_auth(token).send().await {
         Ok(res) => res.json().await?,
         Err(e) => {

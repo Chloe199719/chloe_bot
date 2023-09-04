@@ -48,7 +48,7 @@ tracing-log = "0.1"
 tracing-actix-web = "0.7"
 
 [dependencies.sqlx]
-version ="0.6"
+version ="0.7.1"
 default-features = false
 features = ["postgres", "runtime-tokio-rustls", "macros", "chrono","uuid", "migrate"]
 

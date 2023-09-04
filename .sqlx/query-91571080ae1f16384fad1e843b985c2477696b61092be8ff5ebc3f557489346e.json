@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                        DELETE FROM users WHERE access_token = $1                       \n                        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "91571080ae1f16384fad1e843b985c2477696b61092be8ff5ebc3f557489346e"
+}
