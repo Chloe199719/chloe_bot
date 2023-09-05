@@ -56,12 +56,14 @@ async fn main() {
     let std_in_thread = tokio::spawn(read_stdin(stdin_tx.clone()));
     
     let clone = stdin_tx.clone();
+    let connection_pool_web = connection_pool.clone();
     // Actix Thread
     let actix_thread = thread::spawn(move|| {
-        actix_rt::System::new().block_on(start_server(clone, black_list.clone(),connection_pool.clone()));
+        actix_rt::System::new().block_on(start_server(clone, black_list.clone(),connection_pool_web));
     });
-
-    let web_socket_thread = tokio::spawn(web_socket_client((stdin_tx.clone(), stdin_rx.clone()),moderator_sender.clone()));
+    // WebSocket Thread
+    let connection_pool_socket = connection_pool.clone();
+    let web_socket_thread = tokio::spawn(web_socket_client((stdin_tx.clone(), stdin_rx.clone()),moderator_sender.clone(), connection_pool_socket));
 
 
 

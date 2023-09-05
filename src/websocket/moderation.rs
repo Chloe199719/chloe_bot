@@ -14,7 +14,7 @@ use super::message_parser::{TwitchMessage, MessageTypes, Tags};
 
 #[tracing::instrument]
 pub async fn message_processing(message: futures_channel::mpsc::UnboundedReceiver<TwitchMessage>, blacklist: Arc<Blacklist>) {
-    
+  
     
     let _looper = {
         message.for_each(move |message|  {

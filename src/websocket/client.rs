@@ -1,11 +1,12 @@
 use futures_util::{ StreamExt, pin_mut, future };
+use sqlx::PgPool;
 use tokio_tungstenite::{ connect_async, tungstenite::protocol::Message };
 
-use crate::websocket::message_parser::TwitchMessage;
+use crate::websocket::{message_parser::TwitchMessage, init::web_socket_init};
 
 pub async fn web_socket_client(
     (stdin_tx, stdin_rx): (async_channel::Sender<Message>, async_channel::Receiver<Message>),
-    moderation_sender: futures_channel::mpsc::UnboundedSender<TwitchMessage>
+    moderation_sender: futures_channel::mpsc::UnboundedSender<TwitchMessage> , pool: PgPool
 ) -> () {
     let auth_token = std::env::var("AUTH_TOKEN").expect("AUTH_TOKEN not set");
     let parse_token = format!("PASS oauth:{}", auth_token);
@@ -56,17 +57,8 @@ pub async fn web_socket_client(
                     }
                 };
 
-                stdin_tx
-                    .send(
-                        Message::Text(
-                            "CAP REQ :twitch.tv/membership twitch.tv/tags twitch.tv/commands".into()
-                        )
-                    ).await
-                    .unwrap();
-
-                stdin_tx.send(Message::Text(parse_token.clone())).await.unwrap();
-                stdin_tx.send(Message::Text(String::from("NICK chloe_dev_rust"))).await.unwrap();
-                stdin_tx.send(Message::Text("JOIN #naowh, #chloe_dev_rust".into())).await.unwrap();
+                web_socket_init(stdin_tx.clone(), &parse_token, &pool).await;
+                // stdin_tx.send(Message::Text("JOIN #naowh, #chloe_dev_rust".into())).await.unwrap();
 
                 let ws_task = async {
                     pin_mut!(stdin_to_ws, ws_to_stdout);
