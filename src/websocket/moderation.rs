@@ -12,7 +12,7 @@ use tokio::time::Instant;
 
 use super::message_parser::{TwitchMessage, MessageTypes, Tags};
 
-#[tracing::instrument]
+#[tracing::instrument(skip(message, blacklist))]
 pub async fn message_processing(message: futures_channel::mpsc::UnboundedReceiver<TwitchMessage>, blacklist: Arc<Blacklist>) {
   
     
@@ -23,7 +23,7 @@ pub async fn message_processing(message: futures_channel::mpsc::UnboundedReceive
                 return        ready(());
             }
             if blacklist.contains_blacklist_word(&message.command.message) {
-               tracing::info!("Message: {:?}", message.command.message);
+               tracing::info!("Message Blocked: {:?}", message.command.message);
                 
             }
          

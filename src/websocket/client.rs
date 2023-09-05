@@ -34,12 +34,14 @@ pub async fn web_socket_client(
                                         .send(Message::Text("PONG :tmi.twitch.tv".into())).await
                                         .unwrap();
                                 }
-                                println!("{:#?}", data);
+                                // println!("{:#?}", data);
                                 let message = TwitchMessage::parse_message(data.clone());
-                                // let text = &message.command.message;
-                                // tracing::info!("Message: {:?}", text);
+                                if message.command.command == crate::websocket::message_parser::MessageTypes::PRIVMSG {
+                                    let (text,channel, sender) = (&message.command.message, &message.command.channel, &message.source.clone().unwrap().nick);
+                                    tracing::info!("Message: {:?} in  Channel: {:?}, From: {}", text, channel,sender);
+                                    moderation_sender.unbounded_send(message).unwrap();
+                                }
 
-                                moderation_sender.unbounded_send(message).unwrap();
                                 // println!("{:#?}", message);
                             }
                             Ok(Message::Close(_)) => {
