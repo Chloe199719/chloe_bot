@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt};
 
 #[derive(Debug,Clone,PartialEq)]
 pub struct Channels {
@@ -66,7 +66,8 @@ pub struct Command {
     cooldown: i64,
     next_available: i64,
     command: Commands,
-    command_level: UserLevel
+    command_level: UserLevel,
+    command_response: Option<String>
 }
 
 impl Command {
@@ -90,11 +91,15 @@ impl Command {
             cooldown,
             next_available: 0,
             command_level: level,
-            command
+            command,
+            command_response: None
         }
     }
     pub fn command_name(&self) -> &String {
         &self.command_name
+    }
+    pub fn command(&self) -> &Commands {
+        &self.command
     }
     pub fn is_on_cooldown(&self) -> bool {
         let current_time = chrono::Utc::now().timestamp();
@@ -119,9 +124,10 @@ pub enum Commands {
     REMOVECOMMAND,
     FOLLOWAGE,
     UPTIME,
+    CATEGORY,
     CUSTOM,
 }
-#[derive(Debug,Clone,PartialEq)]
+#[derive(Clone,PartialEq)]
 
 pub enum  UserLevel {
     BROADCASTER,
@@ -131,4 +137,16 @@ pub enum  UserLevel {
     SUB,
     EVERYONE
     
+}
+impl fmt::Debug for  UserLevel {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            UserLevel::BROADCASTER => write!(f, "Broadcaster"),
+            UserLevel::SUPERMOD => write!(f, "Super Moderator"),
+            UserLevel::MOD => write!(f, "Moderator"),
+            UserLevel::VIP => write!(f, "VIP"),
+            UserLevel::SUB => write!(f, "Subscriber"),
+            UserLevel::EVERYONE => write!(f, "Everyone"),
+        }
+    }
 }
