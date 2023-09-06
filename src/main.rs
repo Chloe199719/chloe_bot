@@ -8,6 +8,7 @@ use std::{thread, env};
 
 
 
+use futures_util::lock::Mutex;
 use sqlx::PgPool;
 use tokio::io::AsyncReadExt;
 
@@ -40,9 +41,10 @@ async fn main() {
         &env::var("DATABASE_URL").expect("DATABASE_URL not set"),
     ).await.expect("Failed to connect to Postgres.");
 
-
+    let _commands = Arc::new(Mutex::new(chloe_bot::commands::modules::Channels::new()));
     // Channels
     info!("Creating Channels");
+    // let (command_sender, command_receiver) = async_channel::unbounded();
     let (stdin_tx, stdin_rx) = async_channel::unbounded();
     let (moderator_sender, moderator_receiver) = futures_channel::mpsc::unbounded();
 
@@ -51,7 +53,6 @@ async fn main() {
     let black_list = Arc::new(Blacklist::new(vec!["kekw", "pog","eskay"]));
     let moderator_thread = tokio::spawn(message_processing(moderator_receiver, black_list.clone()));
     
-
     // Stdin Thread
     let std_in_thread = tokio::spawn(read_stdin(stdin_tx.clone()));
     

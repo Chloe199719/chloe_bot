@@ -4,6 +4,52 @@ mod tests {
     use std::collections::HashMap;
 
     use rand::Rng;
+    #[test]
+    fn test_hashmap() {
+        let channels = create_hashmap_with_vector();
+        let list_of_commands = list_of_command_channel();
+        let process = procfs::process::Process::myself().expect("Failed to get current process.");
+
+        // Get memory usage in bytes
+        let memory_usage = process.stat.rss * procfs::page_size().unwrap();
+    
+        println!("Memory usage of current process: {} bytes", memory_usage);
+
+        for i in 0..1000{
+            let random = rand::thread_rng().gen_range(0..list_of_commands.len());
+            let (channel, command) = &list_of_commands[random];
+            let timer = std::time::Instant::now();
+            let _= channels.get(channel).unwrap().commands.iter().find(|&x| x == command).unwrap();
+            let elapsed = timer.elapsed();
+            println!("Time to get command: {:?} , Requested Command and channel {:?} {:?}, loop iteration {}", elapsed, channel, command, i);
+        }
+        let process = procfs::process::Process::myself().expect("Failed to get current process.");
+
+        // Get memory usage in bytes
+        let memory_usage = process.stat.rss * procfs::page_size().unwrap();
+    
+        println!("Memory usage of current process: {} bytes", memory_usage);
+    }
+
+
+    fn create_hashmap_with_vector()-> HashMap<String, Channel> {
+        let mut channels = HashMap::new();
+        channels.insert(String::from("maximum"), Channel::new(String::from("maximum"),create_vector_of_commands()));
+
+        channels.insert(String::from("boxbox"), Channel::new(String::from("boxbox"),create_vector_of_commands()));
+        channels.insert(String::from("robinsongz"), Channel::new(String::from("robinsongz"),create_vector_of_commands()));
+        channels.insert(String::from("Emiru"), Channel::new(String::from("Emiru"),create_vector_of_commands()));
+        channels.insert(String::from("naowh"), Channel::new(String::from("naowh"),create_vector_of_commands()));
+        channels.insert(String::from("nightblue3"), Channel::new(String::from("nightblue3"),create_vector_of_commands()));
+        channels.insert(String::from("ratirl"), Channel::new(String::from("ratirl"),create_vector_of_commands()));
+        channels.insert(String::from("ls"), Channel::new(String::from("ls"),create_vector_of_commands()));
+        channels.insert(String::from("riotgames"), Channel::new(String::from("riotgames"),create_vector_of_commands()));
+        channels.insert(String::from("itshafu"), Channel::new(String::from("itshafu"),create_vector_of_commands()));
+        channels.insert(String::from("chloe_rust_dev"), Channel::new(String::from("chloe_rust_dev"),create_vector_of_commands()));
+        channels.insert(String::from("chloe_rust_dev16"), Channel::new(String::from("chloe_rust_dev12"),create_vector_of_commands()));
+
+        channels
+    }
 
     fn create_hashmap_of_commands()-> HashMap<String, HashMap<String,bool>>{
         let mut channels = HashMap::new();
@@ -230,6 +276,10 @@ mod tests {
         commands.push(String::from("chatterslisttoggletoggle"));
         commands.push(String::from("chatterslistview"));
         commands.push(String::from("chattersview"));
+        for _ in 0..100{
+            let random_string = generate_random_string(10);
+            commands.push(random_string);
+        }
         commands
     }
     #[test]
