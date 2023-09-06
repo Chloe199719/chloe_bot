@@ -14,6 +14,7 @@ pub async fn web_socket_init(stdin_tx: async_channel::Sender<Message>, parse_tok
     //FIXME: Remove mut keyword and manual channel joins
     let mut channel_list = get_channels_to_join(&pool).await;
     channel_list.push(String::from("maximum"));
+    channel_list.push(String::from("robinsongz"));
     tokio::spawn(loop_through_channels_to_join(stdin_tx.clone(), channel_list));
     tracing::info!("Finished init");
 }
