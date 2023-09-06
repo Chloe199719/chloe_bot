@@ -15,7 +15,9 @@ path = "src/lib.rs"
 [[bin]]
 path = "src/main.rs"
 name = "chloe_bot"
-
+[dev-dependencies]
+sys-info = "0.7"
+procfs = "0.9"
 
 [dependencies]
 tokio-tungstenite = {features = ["native-tls"] , version = "*"}

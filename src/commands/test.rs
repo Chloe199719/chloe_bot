@@ -7,7 +7,6 @@ mod tests {
 
     fn create_hashmap_of_commands()-> HashMap<String, HashMap<String,bool>>{
         let mut channels = HashMap::new();
-        channels.insert(String::from("chloe_rust_dev"), add_commands_to_hashmap());
         channels.insert(String::from("maximum"), add_commands_to_hashmap());
         channels.insert(String::from("boxbox"), add_commands_to_hashmap());
         channels.insert(String::from("robinsongz"), add_commands_to_hashmap());
@@ -19,16 +18,17 @@ mod tests {
         channels.insert(String::from("riotgames"), add_commands_to_hashmap());
 
         channels.insert(String::from("itshafu"), add_commands_to_hashmap());
-
+        
         channels.insert(String::from("chloe_rust_dev12"), add_commands_to_hashmap());
         channels.insert(String::from("chloe_rust_dev13"), add_commands_to_hashmap());
         channels.insert(String::from("chloe_rust_dev14"), add_commands_to_hashmap());
         channels.insert(String::from("chloe_rust_dev15"), add_commands_to_hashmap());
         channels.insert(String::from("chloe_rust_dev16"), add_commands_to_hashmap());
-        for _ in 0..1000{
+        for _ in 0..10000{
             let random_string = generate_random_string(10);
             channels.insert(random_string, add_commands_to_hashmap());
         }
+        channels.insert(String::from("chloe_rust_dev"), add_commands_to_hashmap());
 
 
         channels
@@ -92,7 +92,7 @@ mod tests {
         commands.insert(String::from("chatterslisttoggletoggle"), true);
         commands.insert(String::from("chatterslistview"), true);
         commands.insert(String::from("chattersview"), true);
-        for _ in 0..1000{
+        for _ in 0..100{
             let random_string = generate_random_string(10);
             commands.insert(random_string, true);
         }
@@ -113,7 +113,14 @@ mod tests {
     fn test_time_hash_map(){
         let channels = create_hashmap_of_commands();
         let list_of_commands = list_of_command_channel();
-        for i in 0..100000{
+        let process = procfs::process::Process::myself().expect("Failed to get current process.");
+
+        // Get memory usage in bytes
+        let memory_usage = process.stat.rss * procfs::page_size().unwrap();
+    
+        println!("Memory usage of current process: {} bytes", memory_usage);
+
+        for i in 0..1000{
             let random = rand::thread_rng().gen_range(0..list_of_commands.len());
             let (channel, command) = &list_of_commands[random];
             let timer = std::time::Instant::now();
@@ -121,6 +128,13 @@ mod tests {
             let elapsed = timer.elapsed();
             println!("Time to get command: {:?} , Requested Command and channel {:?} {:?}, loop iteration {}", elapsed, channel, command, i);
         }
+        let process = procfs::process::Process::myself().expect("Failed to get current process.");
+
+        // Get memory usage in bytes
+        let memory_usage = process.stat.rss * procfs::page_size().unwrap();
+    
+        println!("Memory usage of current process: {} bytes", memory_usage);
+
     }
     #[derive(Debug,Clone)]    
     struct Channel {
@@ -149,20 +163,20 @@ mod tests {
 
     fn create_vector_of_channels()-> Vec<Channel>{
         let mut channels = Vec::new();
-        for i in 0..1000{
-            if i == 100 {
+        for i in 0..10000{
+            if i == 1000 {
                 channels.push(Channel::new(String::from("chloe_rust_dev"),create_vector_of_commands()));
-            } else if i == 200 {
+            } else if i == 2000 {
                 channels.push(Channel::new(String::from("maximum"),create_vector_of_commands()));
-            } else if i == 300 {
+            } else if i == 3000 {
                 channels.push(Channel::new(String::from("boxbox"),create_vector_of_commands()));
-            } else if i == 400 {
+            } else if i == 4000 {
                 channels.push(Channel::new(String::from("robinsongz"),create_vector_of_commands()));
-            } else if i == 500 {
+            } else if i == 5000 {
                 channels.push(Channel::new(String::from("Emiru"),create_vector_of_commands()));
-            } else if i == 600 {
+            } else if i == 6000 {
                 channels.push(Channel::new(String::from("naowh"),create_vector_of_commands()));
-            } else if i == 700 {
+            } else if i == 7000 {
                 channels.push(Channel::new(String::from("nightblue3"),create_vector_of_commands()));
             } else {
                 channels.push(Channel::new(generate_random_string(10),create_vector_of_commands()));
@@ -222,7 +236,14 @@ mod tests {
     fn test_time_vector(){
         let channels = create_vector_of_channels();
         let list_of_commands = list_of_command_channel2();
-        for i in 0..100000{
+        let process = procfs::process::Process::myself().expect("Failed to get current process.");
+
+        // Get memory usage in bytes
+        let memory_usage = process.stat.rss * procfs::page_size().unwrap();
+    
+        println!("Memory usage of current process: {} bytes", memory_usage);
+
+        for i in 0..1000{
             let random = rand::thread_rng().gen_range(0..list_of_commands.len());
             let (channel, command) = &list_of_commands[random];
             let timer = std::time::Instant::now();
@@ -230,5 +251,11 @@ mod tests {
             let elapsed = timer.elapsed();
             println!("Time to get command: {:?} , Requested Command and channel {:?} {:?}, loop iteration {}", elapsed, channel, command, i);
         }
+        let process = procfs::process::Process::myself().expect("Failed to get current process.");
+
+        // Get memory usage in bytes
+        let memory_usage = process.stat.rss * procfs::page_size().unwrap();
+    
+        println!("Memory usage of current process: {} bytes", memory_usage);
     }
 }
