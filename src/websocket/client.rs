@@ -18,7 +18,6 @@ pub async fn web_socket_client(
     let max_backoff: u64 = 300;
     let factor: u64 = 2;
 
-    //TODO: Handle this error more gracefully
     loop {
         match connect_async(url.clone()).await {
             Ok((ws_stream, _)) => {

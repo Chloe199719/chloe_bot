@@ -60,7 +60,7 @@ async fn authenticate(_data: web::Data<AppState>) -> impl Responder {
     let state = generate_state();
 
     let cookie = Cookie::build("oauth_state", &state).http_only(true).finish();
-    // TODO: make client_id an env variable and make the redirect url a env variable
+    // TODO: make client_id an env variable and make the redirect url a env variable already in app state
     //TODO: Add correct scopes
     let redirect_url = format!("https://id.twitch.tv/oauth2/authorize?response_type=code&client_id=9wexo28wfkm476ztq18vafo6xio5la&redirect_uri=https://localhost:8080/auth&scope=moderator:manage:chat_messages&state={}", state);
 
