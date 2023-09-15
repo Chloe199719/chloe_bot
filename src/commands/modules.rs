@@ -25,7 +25,7 @@ impl Channels {
 
 }
 
-#[derive(Debug,Clone,PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ChannelCommands {
     channel_name: String,
     commands: Vec<Command>,

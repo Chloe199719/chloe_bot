@@ -17,8 +17,8 @@ use tokio_tungstenite::tungstenite::Message;
 
 // Local imports
 use crate::websocket::moderation::Blacklist;
-
 use super::routes::oauth::auth::auth_token;
+
 pub struct AppState {
     pub tx : async_channel::Sender<Message>,
     pub blacklist: Arc<Blacklist>,
