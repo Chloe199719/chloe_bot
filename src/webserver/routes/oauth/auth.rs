@@ -7,7 +7,7 @@ use serde::Deserialize;
 use sqlx::{Pool, Postgres};
 
 use crate::webserver::server::AppState;
-
+// #[tracing::instrument(skip(info, data))]
 #[get("/auth")]
 pub async fn auth_token(req: HttpRequest ,info:web::Query<QueryAuth>, data: web::Data<AppState>) -> impl Responder {
     if let Some(cookie) = req.cookie("oauth_state") {
@@ -19,8 +19,7 @@ pub async fn auth_token(req: HttpRequest ,info:web::Query<QueryAuth>, data: web:
     }
  
     
-   
-   
+    println!("{:#?}", info);
     let token_res:AuthResponse = match token_request(data.req_client.clone(), create_token_params(&data.client_id, &data.client_secret, &info.code)).await {
         Ok(res) => res,
         Err(e) => {
@@ -94,7 +93,7 @@ pub struct QueryAuth {
      scope: String,
 }
 
-// #[derive(Deserialize,Debug)]
+
 #[derive(sqlx::FromRow,Debug)]
 struct ReturnSQL{
     success: bool,
@@ -138,6 +137,7 @@ pub struct VerifyResponse {
    
 }
 
+#[tracing::instrument(skip(client))]
 async fn token_request(client:Client, params: [(&str, String); 5]) -> Result<AuthResponse, reqwest::Error >{
     let token_res:AuthResponse = client.post("https://id.twitch.tv/oauth2/token").form(&params).send().await?.json().await?;
     Ok(token_res)
