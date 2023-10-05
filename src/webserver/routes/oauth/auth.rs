@@ -140,6 +140,7 @@ pub struct VerifyResponse {
 #[tracing::instrument(skip(client))]
 async fn token_request(client:Client, params: [(&str, String); 5]) -> Result<AuthResponse, reqwest::Error >{
     let token_res:AuthResponse = client.post("https://id.twitch.tv/oauth2/token").form(&params).send().await?.json().await?;
+    println!("{:#?}", token_res);
     Ok(token_res)
 
 }
