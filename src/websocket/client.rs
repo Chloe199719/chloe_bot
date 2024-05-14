@@ -2,7 +2,9 @@ use futures_util::{future, pin_mut, StreamExt};
 use sqlx::PgPool;
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 
-use crate::websocket::{init::web_socket_init, message_parser::TwitchMessage};
+use crate::websocket::{
+    bot_commands_parser::parse_command, init::web_socket_init, message_parser::TwitchMessage,
+};
 
 pub async fn web_socket_client(
     (stdin_tx, stdin_rx): (
@@ -54,38 +56,8 @@ pub async fn web_socket_client(
                                         channel,
                                         sender
                                     );
-                                    match text.as_str().trim() {
-                                        "!tests" => {
-                                            tracing::info!(
-                                                "Received PING at Channel: {}",
-                                                Message::Text(format!("PRIVMSG {} :PONG", channel))
-                                            );
-
-                                            match stdin_tx
-                                                .clone()
-                                                .send(
-                                                    Message::Text(format!(
-                                                        "PRIVMSG {} :Yep I'm here!",
-                                                        channel
-                                                    ))
-                                                    .into(),
-                                                )
-                                                .await
-                                            {
-                                                Ok(_) => {
-                                                    tracing::info!(
-                                                        "Sent PONG to Channel: {}",
-                                                        channel
-                                                    );
-                                                }
-                                                Err(e) => {
-                                                    tracing::error!("Error: {:?}", e);
-                                                }
-                                            }
-                                        }
-                                        _ => {
-                                            tracing::info!("No Command Found");
-                                        }
+                                    if text.starts_with("!") {
+                                        parse_command(&text, stdin_tx.clone(), &channel).await;
                                     }
 
                                     moderation_sender.unbounded_send(message.clone()).unwrap();
