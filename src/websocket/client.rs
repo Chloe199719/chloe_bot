@@ -1,12 +1,16 @@
-use futures_util::{ StreamExt, pin_mut, future };
+use futures_util::{future, pin_mut, StreamExt};
 use sqlx::PgPool;
-use tokio_tungstenite::{ connect_async, tungstenite::protocol::Message };
+use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 
-use crate::websocket::{message_parser::TwitchMessage, init::web_socket_init};
+use crate::websocket::{init::web_socket_init, message_parser::TwitchMessage};
 
 pub async fn web_socket_client(
-    (stdin_tx, stdin_rx): (async_channel::Sender<Message>, async_channel::Receiver<Message>),
-    moderation_sender: futures_channel::mpsc::UnboundedSender<TwitchMessage> , pool: PgPool
+    (stdin_tx, stdin_rx): (
+        async_channel::Sender<Message>,
+        async_channel::Receiver<Message>,
+    ),
+    moderation_sender: futures_channel::mpsc::UnboundedSender<TwitchMessage>,
+    pool: PgPool,
 ) -> () {
     let auth_token = std::env::var("AUTH_TOKEN").expect("AUTH_TOKEN not set");
     let parse_token = format!("PASS oauth:{}", auth_token);
@@ -30,15 +34,61 @@ pub async fn web_socket_client(
                             Ok(Message::Text(data)) => {
                                 if data.starts_with("PING") {
                                     stdin_tx
-                                        .send(Message::Text("PONG :tmi.twitch.tv".into())).await
+                                        .send(Message::Text("PONG :tmi.twitch.tv".into()))
+                                        .await
                                         .unwrap();
                                 }
                                 // println!("{:#?}", data);
                                 let message = TwitchMessage::parse_message(data.clone());
-                                if message.command.command == crate::websocket::message_parser::MessageTypes::PRIVMSG {
-                                    let (text,channel, sender) = (&message.command.message, &message.command.channel, &message.source.clone().unwrap().nick);
-                                    tracing::info!("Message: {:?} in  Channel: {:?}, From: {}", text, channel,sender);
-                                    moderation_sender.unbounded_send(message).unwrap();
+                                if message.command.command
+                                    == crate::websocket::message_parser::MessageTypes::PRIVMSG
+                                {
+                                    let (text, channel, sender) = (
+                                        &message.command.message,
+                                        &message.command.channel,
+                                        &message.source.clone().unwrap().nick,
+                                    );
+                                    tracing::info!(
+                                        "Message: {:?} in  Channel: {:?}, From: {}",
+                                        text,
+                                        channel,
+                                        sender
+                                    );
+                                    match text.as_str().trim() {
+                                        "!tests" => {
+                                            tracing::info!(
+                                                "Received PING at Channel: {}",
+                                                Message::Text(format!("PRIVMSG {} :PONG", channel))
+                                            );
+
+                                            match stdin_tx
+                                                .clone()
+                                                .send(
+                                                    Message::Text(format!(
+                                                        "PRIVMSG {} :Yep I'm here!",
+                                                        channel
+                                                    ))
+                                                    .into(),
+                                                )
+                                                .await
+                                            {
+                                                Ok(_) => {
+                                                    tracing::info!(
+                                                        "Sent PONG to Channel: {}",
+                                                        channel
+                                                    );
+                                                }
+                                                Err(e) => {
+                                                    tracing::error!("Error: {:?}", e);
+                                                }
+                                            }
+                                        }
+                                        _ => {
+                                            tracing::info!("No Command Found");
+                                        }
+                                    }
+
+                                    moderation_sender.unbounded_send(message.clone()).unwrap();
                                 }
 
                                 // println!("{:#?}", message);
